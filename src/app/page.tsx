@@ -120,7 +120,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("Data fetch error:", err);
-    } fontally: {
+    } finally {
       setLoadingData(false);
     }
   };
