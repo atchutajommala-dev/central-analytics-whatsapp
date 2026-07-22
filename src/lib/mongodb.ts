@@ -15,7 +15,10 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
     throw new Error("Please define the MONGODB_URI environment variable in .env.local or Vercel Environment Variables");
   }
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    serverSelectionTimeoutMS: 3000,
+    connectTimeoutMS: 3000,
+  });
   await client.connect();
   const db = client.db(dbName);
 
