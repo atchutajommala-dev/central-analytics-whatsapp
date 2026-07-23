@@ -240,3 +240,61 @@ export const COMMON_RANGES = [
   { label: "Dashboard Area", value: "A1:M30", description: "Common dashboard layout" },
   { label: "Summary Table", value: "A1:H20", description: "Compact summary table" },
 ];
+
+// ---------------------------------------------------------------------------
+// Date Incremental Range Generator Helper
+// ---------------------------------------------------------------------------
+export interface IncrementalSubRangeSpec {
+  colStart: string;
+  colEnd: string;
+  rowOffset?: number;
+  height?: number;
+}
+
+export interface IncrementalRangeConfig {
+  sheetTitle?: string;
+  baseRow: number;
+  rowStep: number;
+  daysCount: number;
+  subRanges: IncrementalSubRangeSpec[];
+}
+
+export function generateIncrementalDayRanges(config: IncrementalRangeConfig): {
+  id: string;
+  dayIndex: number;
+  value: string;
+  label: string;
+  worksheet?: string;
+  type: "a1";
+}[] {
+  const { sheetTitle, baseRow, rowStep, daysCount, subRanges } = config;
+  const results: any[] = [];
+  const sheetPrefix = sheetTitle ? `${sheetTitle}!` : "";
+
+  for (let day = 0; day < daysCount; day++) {
+    const dayStartRow = baseRow + day * rowStep;
+    for (let sIdx = 0; sIdx < subRanges.length; sIdx++) {
+      const sub = subRanges[sIdx];
+      const offset = sub.rowOffset || 0;
+      const height = sub.height !== undefined ? sub.height : Math.max(1, rowStep);
+      const rStart = dayStartRow + offset;
+      const rEnd = rStart + Math.max(0, height - 1);
+
+      const cellRange = `${sub.colStart.toUpperCase()}${rStart}:${sub.colEnd.toUpperCase()}${rEnd}`;
+      const fullValue = `${sheetPrefix}${cellRange}`;
+      const rangeId = `range_inc_d${day + 1}_s${sIdx + 1}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+      results.push({
+        id: rangeId,
+        type: "a1" as const,
+        value: fullValue,
+        worksheet: sheetTitle,
+        label: `Day ${day + 1} (${sub.colStart}:${sub.colEnd}): ${cellRange}`,
+        dayIndex: day + 1,
+      });
+    }
+  }
+
+  return results;
+}
+
