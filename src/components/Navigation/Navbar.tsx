@@ -9,9 +9,11 @@ import {
   ChevronRight,
   Clock,
   Sparkles,
-  Command
+  Command,
+  RefreshCw
 } from "lucide-react";
 import { DashboardTab, SystemStatus } from "@/types/dashboard";
+import { useRefresh } from "@/context/RefreshContext";
 
 interface NavbarProps {
   activeTab: DashboardTab;
@@ -31,6 +33,7 @@ export default function Navbar({
   unreadLogsCount,
 }: NavbarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const { isRefreshing, autoRefreshInterval, triggerSilentRefresh } = useRefresh();
 
   const getBreadcrumbTitle = () => {
     switch (activeTab) {
@@ -104,8 +107,21 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Right: Notifications Bell */}
+        {/* Right: Silent Refresh & Notifications Bell */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Silent Refresh Button */}
+          <button
+            onClick={triggerSilentRefresh}
+            disabled={isRefreshing}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-bold btn-secondary-theme flex items-center gap-1.5 transition select-none"
+            title="Trigger instant silent background refresh"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#f06a55] ${isRefreshing ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline font-mono text-[11px]">
+              {isRefreshing ? "Syncing..." : `Sync (${autoRefreshInterval}s)`}
+            </span>
+          </button>
+
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}

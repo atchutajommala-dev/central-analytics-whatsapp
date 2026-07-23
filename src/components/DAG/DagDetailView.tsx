@@ -12,6 +12,7 @@ import DagGraph from "@/components/DAG/DagGraph";
 import ExecutionHistory from "@/components/DAG/ExecutionHistory";
 import LogViewer from "@/components/Logs/LogViewer";
 import NextRunCountdown from "@/components/Common/NextRunCountdown";
+import { useRefresh } from "@/context/RefreshContext";
 
 interface DagDetailViewProps {
   jobId: string;
@@ -43,9 +44,15 @@ export default function DagDetailView({
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<"graph" | "history" | "logs" | "config">("graph");
 
+  const { registerRefreshHandler } = useRefresh();
+
   useEffect(() => {
     fetchJobDetail();
-  }, [jobId]);
+    const unregister = registerRefreshHandler(async () => {
+      await fetchJobDetail();
+    });
+    return unregister;
+  }, [jobId, registerRefreshHandler]);
 
   const fetchJobDetail = async () => {
     setLoading(true);

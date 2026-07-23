@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRefresh } from "@/context/RefreshContext";
 
 interface NextRunCountdownProps {
   targetDate: Date | string | null;
   className?: string;
+  onDue?: () => void;
 }
 
 export function formatSecondsCountdown(targetDate: Date | string | null): string {
@@ -31,11 +33,15 @@ export function formatSecondsCountdown(targetDate: Date | string | null): string
   return `in ${diffDays}d ${diffHours % 24}h`;
 }
 
-export default function NextRunCountdown({ targetDate, className = "" }: NextRunCountdownProps) {
+export default function NextRunCountdown({ targetDate, className = "", onDue }: NextRunCountdownProps) {
+  const { triggerSilentRefresh } = useRefresh();
   const [displayText, setDisplayText] = useState<string>(() => formatSecondsCountdown(targetDate));
   const [isUnderMinute, setIsUnderMinute] = useState<boolean>(false);
+  const [triggeredDue, setTriggeredDue] = useState<boolean>(false);
 
   useEffect(() => {
+    let timer: NodeJS.Timeout;
+
     const updateTime = () => {
       if (!targetDate) {
         setDisplayText("—");
@@ -48,22 +54,31 @@ export default function NextRunCountdown({ targetDate, className = "" }: NextRun
       const diffMs = date.getTime() - now.getTime();
       const diffSecs = Math.floor(diffMs / 1000);
 
-      setIsUnderMinute(diffSecs > 0 && diffSecs < 60);
-      setDisplayText(formatSecondsCountdown(targetDate));
+      if (diffSecs <= 0) {
+        setDisplayText("Due Now");
+        setIsUnderMinute(false);
+        if (!triggeredDue) {
+          setTriggeredDue(true);
+          if (onDue) onDue();
+          if (triggerSilentRefresh) triggerSilentRefresh();
+        }
+      } else {
+        setIsUnderMinute(diffSecs < 60);
+        setDisplayText(formatSecondsCountdown(targetDate));
+      }
     };
 
     updateTime();
-    // Update every 1s if under a minute, otherwise every 10s
-    const intervalMs = isUnderMinute ? 1000 : 5000;
-    const timer = setInterval(updateTime, intervalMs);
+    // Ticks every 1 second (1000ms) smoothly
+    timer = setInterval(updateTime, 1000);
 
     return () => clearInterval(timer);
-  }, [targetDate, isUnderMinute]);
+  }, [targetDate, onDue, triggerSilentRefresh, triggeredDue]);
 
   return (
     <span className={`inline-flex items-center gap-1 font-mono font-bold transition-all ${
       displayText === "Due Now"
-        ? "text-emerald-500 animate-pulse"
+        ? "text-emerald-500 font-extrabold animate-pulse"
         : isUnderMinute
         ? "text-[#f06a55] font-extrabold animate-pulse"
         : ""

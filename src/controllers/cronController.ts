@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import path from "path";
 import { connectToDatabase } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 import { executeAutomationPayloadJS } from "@/lib/automationEngine";
 
 export async function executeSinglePayload(payload: any) {
@@ -61,10 +62,11 @@ except Exception as e:
 
   const endTime = new Date().toISOString();
 
-  // Save Execution Document into MongoDB
-  try {
-    const { db } = await connectToDatabase();
-    const isSuccess = childResult.status === "success";
+  // Save Execution Document into MongoDB only if not already saved by JS engine
+  if (childResult?.engine !== "native_serverless_js") {
+    try {
+      const { db } = await connectToDatabase();
+      const isSuccess = childResult.status === "success";
 
     const executionDoc = {
       job_id: String(payload.job_id || "manual"),
@@ -104,8 +106,9 @@ except Exception as e:
         { $inc: incUpdate, $set: { last_run: endTime, last_status: isSuccess ? "success" : "error" } }
       );
     }
-  } catch (dbErr) {
-    console.error("Failed to save execution record to MongoDB:", dbErr);
+    } catch (dbErr) {
+      console.error("Failed to save execution record to MongoDB:", dbErr);
+    }
   }
 
   return childResult;
@@ -142,6 +145,25 @@ export async function executeAutomationController(payload: any) {
         const lastRunAt = (job as any).last_run || (job as any).last_run_at;
 
         const isDue = payload?.force_run || payload?.run || isCronDue(cronExpr, tz, lastRunAt);
+
+        // STRICT DEDUPLICATION LOCK:
+        // For scheduled runs, verify this workflow has NOT already executed within the last 45 minutes
+        if (!payload?.force_run) {
+          const strId = String(job._id);
+          const lockWindow = new Date(Date.now() - 45 * 60 * 1000).toISOString();
+          const existingRun = await db.collection("executions").findOne({
+            $or: [
+              { job_id: strId },
+              { job_name: job.name },
+              ...(ObjectId.isValid(strId) ? [{ job_id: new ObjectId(strId) }] : []),
+            ],
+            started_at: { $gte: lockWindow },
+          });
+
+          if (existingRun) {
+            continue;
+          }
+        }
 
         if (isDue) {
           const rawDests = job.destinations || (job as any).destinations || [];

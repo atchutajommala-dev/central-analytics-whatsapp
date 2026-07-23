@@ -22,8 +22,10 @@ import LogViewer from "@/components/Logs/LogViewer";
 import { DashboardTab, DbUser, WorkflowJob, LogEntry, SystemStatus, ExecutionRecord } from "@/types/dashboard";
 import { getFirebaseAuth, loginWithGoogle, logoutFirebase } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { RefreshProvider, useRefresh } from "@/context/RefreshContext";
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const { registerRefreshHandler } = useRefresh();
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,7 +129,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    const unregister = registerRefreshHandler(async () => {
+      await fetchData();
+    });
+    return unregister;
+  }, [registerRefreshHandler]);
 
   const handleLogin = async () => {
     try {
@@ -421,5 +427,13 @@ export default function DashboardPage() {
         onClose={() => setSelectedLogDetail(null)}
       />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <RefreshProvider>
+      <DashboardContent />
+    </RefreshProvider>
   );
 }
