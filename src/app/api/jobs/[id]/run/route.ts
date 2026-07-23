@@ -53,8 +53,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": req.headers.get("Authorization") || "",
-        "x-cron-secret": req.headers.get("x-cron-secret") || "",
+        "Authorization": req.headers.get("Authorization") || (process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : ""),
+        "x-cron-secret": req.headers.get("x-cron-secret") || process.env.CRON_SECRET || "",
       },
       body: JSON.stringify(payload),
     });

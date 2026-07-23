@@ -7,20 +7,23 @@ function isAuthorized(req: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return true; // If no secret configured, allow execution
 
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret") || url.searchParams.get("cron_secret") || url.searchParams.get("CRON_SECRET") || "";
+
   // Standard encrypted HTTPS headers (Never logged in server query strings)
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   const customHeader = req.headers.get("x-cron-secret") || "";
   const signatureHeader = req.headers.get("x-cron-signature") || "";
 
-  // 1. Direct Secret match via Encrypted HTTPS Header
-  if (token === cronSecret || customHeader === cronSecret) {
+  // 1. Direct Secret match via Encrypted HTTPS Header or Query Param
+  if (token === cronSecret || customHeader === cronSecret || querySecret === cronSecret) {
     return true;
   }
 
   // 2. SHA-256 Hashed Secret digest match
   const expectedHash = crypto.createHash("sha256").update(cronSecret).digest("hex");
-  if (token === expectedHash || customHeader === expectedHash || signatureHeader === `sha256=${expectedHash}`) {
+  if (token === expectedHash || customHeader === expectedHash || querySecret === expectedHash || signatureHeader === `sha256=${expectedHash}`) {
     return true;
   }
 
