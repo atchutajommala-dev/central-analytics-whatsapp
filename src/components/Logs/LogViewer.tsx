@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search, Download, Copy, Check, Filter, RefreshCw,
   Terminal, X, ChevronDown, ChevronRight
@@ -22,6 +22,14 @@ export default function LogViewer({ logs, title, error, onClose, onRefresh }: Lo
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!onRefresh) return;
+    const timer = setInterval(() => {
+      onRefresh();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [onRefresh]);
 
   const classifyLevel = (line: string): LogLevel => {
     const upper = line.toUpperCase();

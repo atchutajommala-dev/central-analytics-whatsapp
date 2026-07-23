@@ -132,14 +132,73 @@ export async function fetchSpreadsheetMetadataJS(sheetId: string) {
 export async function executeAutomationPayloadJS(payload: any = {}) {
   const startTime = new Date();
   const logs: string[] = [];
-  const addLog = (msg: string) => {
-    const timestamp = new Date().toISOString();
-    logs.push(`${timestamp} | INFO | ${msg}`);
-  };
+  let executionId: any = null;
 
   const jobId = String(payload.job_id || "default_job");
   const jobName = String(payload.job_name || "Automation Job");
-  addLog(`Starting native Serverless JS automation for job '${jobName}'`);
+  const forceRun = Boolean(payload.force_run);
+  const dryRun = Boolean(payload.dry_run);
+
+  // 1. Immediately insert a "running" status document in MongoDB
+  try {
+    const { db } = await connectToDatabase();
+    const initialLog = `${startTime.toISOString()} | INFO | Starting native Serverless JS automation for job '${jobName}'`;
+    logs.push(initialLog);
+
+    const runningDoc = {
+      job_id: jobId,
+      job_name: jobName,
+      run_number: 1,
+      start_time: startTime,
+      started_at: startTime.toISOString(),
+      status: "running",
+      exit_code: 0,
+      retry_count: 0,
+      trigger_type: forceRun ? "manual" : "scheduled",
+      logs: [initialLog],
+      artifacts: [],
+      engine: "native_serverless_js",
+    };
+
+    const inserted = await db.collection("executions").insertOne(runningDoc as any);
+    executionId = inserted.insertedId;
+
+    if (jobId && jobId !== "default_job") {
+      const strId = String(jobId);
+      const jobQuery: any = {
+        $or: [
+          { _id: strId },
+          ...(crypto && /^[0-9a-fA-F]{24}$/.test(strId) ? [{ _id: new (require("mongodb").ObjectId)(strId) }] : []),
+        ],
+      };
+      await db.collection("jobs").updateOne(jobQuery, {
+        $set: {
+          last_run: startTime.toISOString(),
+          last_run_at: startTime.toISOString(),
+          last_status: "running",
+        },
+      });
+    }
+  } catch (initErr) {
+    console.error("Failed to insert initial running execution record:", initErr);
+  }
+
+  // 2. Incremental real-time log pusher
+  const addLog = (msg: string) => {
+    const timestamp = new Date().toISOString();
+    const formattedLog = `${timestamp} | INFO | ${msg}`;
+    logs.push(formattedLog);
+
+    if (executionId) {
+      connectToDatabase()
+        .then(({ db }) => {
+          db.collection("executions")
+            .updateOne({ _id: executionId }, { $push: { logs: formattedLog } as any })
+            .catch(() => {});
+        })
+        .catch(() => {});
+    }
+  };
 
   const sheetId = payload.sheet_id || process.env.SHEET_ID;
   const cloudName = (process.env.CLOUD_NAME || "").trim().replace(/['"]/g, "");
@@ -171,8 +230,6 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
   }
 
   const aisensyCampaignName = payload.aisensy_campaign_name || process.env.AISENSY_CAMPAIGN_NAME || "Online Analytics Whatsapp Automation";
-  const forceRun = Boolean(payload.force_run);
-  const dryRun = Boolean(payload.dry_run);
 
   const missingEnvs: string[] = [];
   if (!sheetId) missingEnvs.push("sheet_id / SHEET_ID");
@@ -349,39 +406,56 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
     const durationMs = endTime.getTime() - startTime.getTime();
     addLog(`Automation run completed successfully in ${durationMs}ms. Sent ${sentCount} dispatches.`);
 
-    // Persist to MongoDB
+    // Persist final status to MongoDB
     try {
       const { db } = await connectToDatabase();
-      const executionDoc = {
-        job_id: jobId,
-        job_name: jobName,
-        run_number: 1,
-        start_time: startTime,
-        started_at: startTime.toISOString(),
-        end_time: endTime,
-        completed_at: endTime.toISOString(),
-        duration_ms: durationMs,
-        status: "success",
-        exit_code: 0,
-        retry_count: 0,
-        trigger_type: forceRun ? "manual" : "scheduled",
-        logs,
-        artifacts: uploadedUrls.map((url, i) => ({
-          id: `art_${i}`,
-          type: "image",
-          name: `export_${i + 1}.jpg`,
-          url,
-          size_bytes: 0,
-          content_type: "image/jpeg",
-          created_at: endTime.toISOString(),
-        })),
-        engine: "native_serverless_js",
-      };
+      const artifactsList = uploadedUrls.map((url, i) => ({
+        id: `art_${i}`,
+        type: "image",
+        name: `export_${i + 1}.jpg`,
+        url,
+        size_bytes: 0,
+        content_type: "image/jpeg",
+        created_at: endTime.toISOString(),
+      }));
 
-      await db.collection("executions").insertOne(executionDoc as any);
+      if (executionId) {
+        await db.collection("executions").updateOne(
+          { _id: executionId },
+          {
+            $set: {
+              end_time: endTime,
+              completed_at: endTime.toISOString(),
+              duration_ms: durationMs,
+              status: "success",
+              exit_code: 0,
+              artifacts: artifactsList,
+              logs: logs,
+            },
+          }
+        );
+      } else {
+        const executionDoc = {
+          job_id: jobId,
+          job_name: jobName,
+          run_number: 1,
+          start_time: startTime,
+          started_at: startTime.toISOString(),
+          end_time: endTime,
+          completed_at: endTime.toISOString(),
+          duration_ms: durationMs,
+          status: "success",
+          exit_code: 0,
+          retry_count: 0,
+          trigger_type: forceRun ? "manual" : "scheduled",
+          logs,
+          artifacts: artifactsList,
+          engine: "native_serverless_js",
+        };
+        await db.collection("executions").insertOne(executionDoc as any);
+      }
 
       if (payload.job_id && payload.job_id !== "default_job") {
-        const isSuccess = true;
         const strId = String(payload.job_id);
         const jobQuery: any = {
           $or: [
@@ -390,16 +464,12 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
           ],
         };
 
-        const incUpdate = isSuccess
-          ? { total_runs: 1, success_count: 1 }
-          : { total_runs: 1, failure_count: 1 };
-
         await db.collection("jobs").updateOne(jobQuery, {
-          $inc: incUpdate,
+          $inc: { total_runs: 1, success_count: 1 },
           $set: {
             last_run: endTime.toISOString(),
             last_run_at: endTime.toISOString(),
-            last_status: isSuccess ? "success" : "error",
+            last_status: "success",
             avg_duration_ms: durationMs,
           },
         });
@@ -424,19 +494,54 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
     try {
       const { db } = await connectToDatabase();
-      await db.collection("executions").insertOne({
-        job_id: jobId,
-        job_name: jobName,
-        start_time: startTime,
-        started_at: startTime.toISOString(),
-        end_time: endTime,
-        completed_at: endTime.toISOString(),
-        duration_ms: durationMs,
-        status: "error",
-        error: err?.message,
-        logs,
-        engine: "native_serverless_js",
-      } as any);
+      if (executionId) {
+        await db.collection("executions").updateOne(
+          { _id: executionId },
+          {
+            $set: {
+              end_time: endTime,
+              completed_at: endTime.toISOString(),
+              duration_ms: durationMs,
+              status: "error",
+              exit_code: 1,
+              error: err?.message,
+              logs: logs,
+            },
+          }
+        );
+      } else {
+        await db.collection("executions").insertOne({
+          job_id: jobId,
+          job_name: jobName,
+          start_time: startTime,
+          started_at: startTime.toISOString(),
+          end_time: endTime,
+          completed_at: endTime.toISOString(),
+          duration_ms: durationMs,
+          status: "error",
+          error: err?.message,
+          logs,
+          engine: "native_serverless_js",
+        } as any);
+      }
+
+      if (payload.job_id && payload.job_id !== "default_job") {
+        const strId = String(payload.job_id);
+        const jobQuery: any = {
+          $or: [
+            { _id: strId },
+            ...(crypto && /^[0-9a-fA-F]{24}$/.test(strId) ? [{ _id: new (require("mongodb").ObjectId)(strId) }] : []),
+          ],
+        };
+        await db.collection("jobs").updateOne(jobQuery, {
+          $inc: { total_runs: 1, failure_count: 1 },
+          $set: {
+            last_run: endTime.toISOString(),
+            last_run_at: endTime.toISOString(),
+            last_status: "error",
+          },
+        });
+      }
     } catch {}
 
     return {

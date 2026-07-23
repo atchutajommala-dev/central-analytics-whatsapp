@@ -146,26 +146,26 @@ export async function executeAutomationController(payload: any) {
 
         const isDue = payload?.force_run || payload?.run || isCronDue(cronExpr, tz, lastRunAt);
 
-        // STRICT DEDUPLICATION LOCK:
-        // For scheduled runs, verify this workflow has NOT already executed within the last 45 minutes
-        if (!payload?.force_run) {
-          const strId = String(job._id);
-          const lockWindow = new Date(Date.now() - 45 * 60 * 1000).toISOString();
-          const existingRun = await db.collection("executions").findOne({
-            $or: [
-              { job_id: strId },
-              { job_name: job.name },
-              ...(ObjectId.isValid(strId) ? [{ job_id: new ObjectId(strId) }] : []),
-            ],
-            started_at: { $gte: lockWindow },
-          });
-
-          if (existingRun) {
-            continue;
-          }
-        }
-
         if (isDue) {
+          // STRICT DEDUPLICATION LOCK:
+          // For scheduled runs, verify this workflow has NOT already executed within the last 2 minutes
+          if (!payload?.force_run) {
+            const strId = String(job._id);
+            const lockWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+            const existingRun = await db.collection("executions").findOne({
+              $or: [
+                { job_id: strId },
+                { job_name: job.name },
+                ...(ObjectId.isValid(strId) ? [{ job_id: new ObjectId(strId) }] : []),
+              ],
+              started_at: { $gte: lockWindow },
+            });
+
+            if (existingRun) {
+              console.log(`[CronLock] Skipping duplicate run for '${job.name}': Already executed at ${existingRun.started_at}`);
+              continue;
+            }
+          }
           const rawDests = job.destinations || (job as any).destinations || [];
           const destinations = Array.isArray(rawDests)
             ? rawDests
