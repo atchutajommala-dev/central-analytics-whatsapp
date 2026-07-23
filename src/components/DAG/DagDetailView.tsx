@@ -94,13 +94,18 @@ export default function DagDetailView({
   const nextRun = job.schedule?.cron_expression ? getNextRun(job.schedule.cron_expression) : null;
   const statusStyle = STATUS_STYLES[job.status] || STATUS_STYLES.active;
 
+  const lastRunTime = job.last_run_at || (job as any).last_run || executions[0]?.started_at || executions[0]?.start_time;
+  const totalRuns = Math.max(job.total_runs || 0, executions.length);
+  const successCount = job.success_count || executions.filter((e) => e.status === "success").length;
+  const avgDurationMs = job.avg_duration_ms || (executions.length > 0 ? Math.round(executions.reduce((acc, e) => acc + (e.duration_ms || 0), 0) / executions.length) : 0);
+
   const metaCards = [
     { label: "Status", value: job.status.toUpperCase(), icon: Activity, accent: statusStyle },
-    { label: "Last Run", value: job.last_run_at ? new Date(job.last_run_at).toLocaleString() : "Never", icon: Clock },
+    { label: "Last Run", value: lastRunTime ? new Date(lastRunTime).toLocaleString() : "Never", icon: Clock },
     { label: "Next Run", value: nextRun ? <NextRunCountdown targetDate={nextRun} /> : "—", icon: Calendar },
-    { label: "Total Runs", value: job.total_runs.toString(), icon: Layers },
-    { label: "Success Rate", value: job.total_runs > 0 ? `${Math.round((job.success_count / job.total_runs) * 100)}%` : "—", icon: CheckCircle2 },
-    { label: "Avg Duration", value: job.avg_duration_ms ? `${(job.avg_duration_ms / 1000).toFixed(1)}s` : "—", icon: Timer },
+    { label: "Total Runs", value: totalRuns.toString(), icon: Layers },
+    { label: "Success Rate", value: totalRuns > 0 ? `${Math.round((successCount / totalRuns) * 100)}%` : "—", icon: CheckCircle2 },
+    { label: "Avg Duration", value: avgDurationMs > 0 ? `${(avgDurationMs / 1000).toFixed(1)}s` : "—", icon: Timer },
     { label: "Version", value: `v${job.version}`, icon: Tag },
     { label: "Owner", value: job.owner, icon: User },
   ];

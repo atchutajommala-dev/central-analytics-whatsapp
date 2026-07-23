@@ -30,10 +30,50 @@ export async function getJobsController(params: {
     query.tags = params.tag;
   }
 
-  const [jobs, total] = await Promise.all([
+  const [rawJobs, total] = await Promise.all([
     db.collection<JobDocument>("jobs").find(query).sort({ updated_at: -1 }).skip(skip).limit(limit).toArray(),
     db.collection<JobDocument>("jobs").countDocuments(query),
   ]);
+
+  // Compute live execution metrics fallback for each job
+  const jobs = await Promise.all(
+    rawJobs.map(async (job) => {
+      const strId = String(job._id);
+      const execs = await db
+        .collection<ExecutionDocument>("executions")
+        .find({
+          $or: [
+            { job_id: strId },
+            { job_name: job.name },
+            ...(ObjectId.isValid(strId) ? [{ job_id: new ObjectId(strId) }] : []),
+          ],
+        })
+        .sort({ started_at: -1 })
+        .limit(50)
+        .toArray();
+
+      if (execs.length > 0) {
+        const lastExec = execs[0];
+        const succCount = execs.filter((e) => e.status === "success").length;
+        const totalRuns = execs.length;
+        const avgDur = Math.round(
+          execs.reduce((acc, e) => acc + (e.duration_ms || 0), 0) / totalRuns
+        );
+
+        return {
+          ...job,
+          total_runs: Math.max(job.total_runs || 0, totalRuns),
+          success_count: Math.max(job.success_count || 0, succCount),
+          failure_count: totalRuns - succCount,
+          last_run_at: job.last_run_at || (job as any).last_run || lastExec.started_at || lastExec.start_time,
+          last_status: lastExec.status || "success",
+          avg_duration_ms: job.avg_duration_ms || avgDur,
+        };
+      }
+
+      return job;
+    })
+  );
 
   return {
     jobs,
@@ -68,6 +108,7 @@ export async function getJobByIdController(id: string) {
     $or: [
       { job_id: jobStrId },
       { job_id: id },
+      { job_name: job.name },
       ...(ObjectId.isValid(jobStrId) ? [{ job_id: new ObjectId(jobStrId) }] : []),
       ...(ObjectId.isValid(id) ? [{ job_id: new ObjectId(id) }] : []),
     ],
@@ -79,6 +120,25 @@ export async function getJobByIdController(id: string) {
     .sort({ started_at: -1 })
     .limit(50)
     .toArray();
+
+  if (recentExecutions.length > 0) {
+    const lastExec = recentExecutions[0];
+    const succCount = recentExecutions.filter((e) => e.status === "success").length;
+    const totalRuns = recentExecutions.length;
+    const avgDur = Math.round(
+      recentExecutions.reduce((acc, e) => acc + (e.duration_ms || 0), 0) / totalRuns
+    );
+
+    job = {
+      ...job,
+      total_runs: Math.max(job.total_runs || 0, totalRuns),
+      success_count: Math.max(job.success_count || 0, succCount),
+      failure_count: totalRuns - succCount,
+      last_run_at: job.last_run_at || (job as any).last_run || lastExec.started_at || lastExec.start_time,
+      last_status: lastExec.status || "success",
+      avg_duration_ms: job.avg_duration_ms || avgDur,
+    };
+  }
 
   return { job, executions: recentExecutions, recent_executions: recentExecutions };
 }

@@ -381,13 +381,27 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
       await db.collection("executions").insertOne(executionDoc as any);
 
       if (payload.job_id && payload.job_id !== "default_job") {
-        await db.collection("jobs").updateOne(
-          { _id: payload.job_id as any },
-          {
-            $inc: { total_runs: 1, success_count: 1 },
-            $set: { last_run: endTime.toISOString(), last_status: "success" },
-          }
-        );
+        const strId = String(payload.job_id);
+        const jobQuery: any = {
+          $or: [
+            { _id: strId },
+            ...(crypto && /^[0-9a-fA-F]{24}$/.test(strId) ? [{ _id: new (require("mongodb").ObjectId)(strId) }] : []),
+          ],
+        };
+
+        const incUpdate = isSuccess
+          ? { total_runs: 1, success_count: 1 }
+          : { total_runs: 1, failure_count: 1 };
+
+        await db.collection("jobs").updateOne(jobQuery, {
+          $inc: incUpdate,
+          $set: {
+            last_run: endTime.toISOString(),
+            last_run_at: endTime.toISOString(),
+            last_status: isSuccess ? "success" : "error",
+            avg_duration_ms: durationMs,
+          },
+        });
       }
     } catch (dbErr: any) {
       addLog(`Warning: MongoDB persistence failed: ${dbErr?.message}`);
