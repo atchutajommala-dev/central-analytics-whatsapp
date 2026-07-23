@@ -33,6 +33,15 @@ export async function getMonitoringMetricsController() {
   };
 }
 
+function cleanEnvVal(val?: string): string {
+  if (!val) return "";
+  let s = val.trim();
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 export async function getSystemStatusController() {
   let mongoConnected = false;
   try {
@@ -45,11 +54,24 @@ export async function getSystemStatusController() {
 
   const nowIST = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
 
+  const envStatus: Record<string, boolean> = {
+    GOOGLE_CREDENTIALS_JSON: Boolean(cleanEnvVal(process.env.GOOGLE_CREDENTIALS_JSON)),
+    CLOUD_NAME: Boolean(cleanEnvVal(process.env.CLOUD_NAME)),
+    UPLOAD_PRESET: Boolean(cleanEnvVal(process.env.UPLOAD_PRESET)),
+    AISENSY_API_KEY: Boolean(cleanEnvVal(process.env.AISENSY_API_KEY)),
+    DESTINATIONS: Boolean(cleanEnvVal(process.env.DESTINATIONS || process.env.TEST_RECIPIENT_PHONE)),
+    CRON_SECRET: Boolean(cleanEnvVal(process.env.CRON_SECRET)),
+    FIREBASE_AUTH: Boolean(cleanEnvVal(process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)),
+    ADMIN_EMAILS: Boolean(cleanEnvVal(process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS)),
+    MONGODB_URI: Boolean(cleanEnvVal(process.env.MONGODB_URI)),
+  };
+
   return {
     mongo_connected: mongoConnected,
-    has_google_creds: Boolean(process.env.GOOGLE_CREDENTIALS_JSON),
-    has_cloudinary: Boolean(process.env.CLOUD_NAME && process.env.UPLOAD_PRESET),
-    has_aisensy: Boolean(process.env.AISENSY_API_KEY),
+    has_google_creds: envStatus.GOOGLE_CREDENTIALS_JSON,
+    has_cloudinary: envStatus.CLOUD_NAME && envStatus.UPLOAD_PRESET,
+    has_aisensy: envStatus.AISENSY_API_KEY,
+    env_status: envStatus,
     ist_time: nowIST,
     status: mongoConnected ? "online" : "degraded",
   };
