@@ -123,24 +123,40 @@ export async function executeAutomationController(payload: any) {
     const { db } = await connectToDatabase();
     const activeJobs = await db
       .collection("jobs")
-      .find({ $or: [{ status: "active" }, { enabled: true }, { active: true }] })
+      .find({
+        $or: [
+          { status: "active" },
+          { status: "published" },
+          { enabled: true },
+          { active: true },
+          { published: true },
+        ],
+      })
       .toArray();
 
     if (activeJobs && activeJobs.length > 0) {
       const results: any[] = [];
       for (const job of activeJobs) {
-        const cronExpr = job.schedule?.cron_expression || (job as any).cron_expression;
-        const isDue = payload?.force_run || isCronDue(cronExpr, job.schedule?.timezone || "Asia/Kolkata");
+        const cronExpr = job.schedule?.cron_expression || (job as any).cron_expression || "0 * * * *";
+        const tz = job.schedule?.timezone || "Asia/Kolkata";
+        const lastRunAt = (job as any).last_run || (job as any).last_run_at;
+
+        const isDue = payload?.force_run || payload?.run || isCronDue(cronExpr, tz, lastRunAt);
 
         if (isDue) {
+          const customRange = (job as any).custom_range || job.ranges?.map((r: { value: string }) => r.value).join(",");
+          const destinations = (job as any).destinations || job.destinations?.filter((d: { enabled: boolean }) => d.enabled).flatMap((d: { config: { phone_numbers?: string[] } }) => d.config?.phone_numbers || []) || [];
+
           const jobPayload = {
             job_id: String(job._id),
             job_name: job.name,
             sheet_id: job.source?.spreadsheet_id || (job as any).sheet_id,
-            sheet_name: job.source?.selected_worksheets?.[0]?.title || (job as any).sheet_name,
+            sheet_name: job.source?.selected_worksheets?.[0]?.title || (job as any).sheet_name || "Sheet1",
+            custom_range: customRange,
             vd_report_sheet_name: (job as any).vd_report_sheet_name,
-            destinations: (job as any).destinations || [],
-            aisensy_campaign_name: (job as any).aisensy_campaign_name,
+            destinations: destinations,
+            destination_configs: (job as any).destination_configs || job.destinations?.filter((d: { enabled: boolean }) => d.enabled) || [],
+            aisensy_campaign_name: (job as any).aisensy_campaign_name || job.destinations?.find((d: { type: string }) => d.type === "whatsapp")?.config?.campaign_name || "",
             custom_fields: (job as any).custom_fields || {},
             force_run: payload?.force_run || false,
             dry_run: payload?.dry_run || false,
@@ -150,7 +166,7 @@ export async function executeAutomationController(payload: any) {
 
           // Update next_run calculation
           if (cronExpr) {
-            const nextRunDate = getNextRun(cronExpr, job.schedule?.timezone || "Asia/Kolkata");
+            const nextRunDate = getNextRun(cronExpr, tz);
             if (nextRunDate) {
               await db.collection("jobs").updateOne(
                 { _id: job._id },

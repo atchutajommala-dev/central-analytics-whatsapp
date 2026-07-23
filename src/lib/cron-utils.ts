@@ -201,28 +201,72 @@ export function getNextRun(expression: string, timezone: string = "Asia/Kolkata"
   return null;
 }
 
-export function isCronDue(expression?: string, timezone: string = "Asia/Kolkata"): boolean {
-  if (!expression || expression.trim() === "") return true;
+export function isCronDue(
+  expression?: string,
+  timezone: string = "Asia/Kolkata",
+  lastRunAt?: string | Date | null
+): boolean {
+  if (!expression || expression.trim() === "" || expression.trim() === "* * * * *") return true;
   const validation = validateCron(expression);
   if (!validation.valid) return true;
 
-  const now = new Date();
-  const min = now.getMinutes();
-  const hr = now.getHours();
-  const dom = now.getDate();
-  const mon = now.getMonth() + 1;
-  const dow = now.getDay();
+  // Convert current server time to target timezone Date
+  let tzDate = new Date();
+  try {
+    const tzString = new Date().toLocaleString("en-US", { timeZone: timezone || "Asia/Kolkata" });
+    tzDate = new Date(tzString);
+  } catch {
+    tzDate = new Date();
+  }
+
+  const min = tzDate.getMinutes();
+  const hr = tzDate.getHours();
+  const dom = tzDate.getDate();
+  const mon = tzDate.getMonth() + 1;
+  const dow = tzDate.getDay();
 
   const parts = expression.trim().split(/\s+/);
   const [minPart, hourPart, domPart, monthPart, dowPart] = parts;
 
-  return (
+  const matchesExact =
     matchesCronField(minPart, min) &&
     matchesCronField(hourPart, hr) &&
     matchesCronField(domPart, dom) &&
     matchesCronField(monthPart, mon) &&
-    matchesCronField(dowPart, dow)
-  );
+    matchesCronField(dowPart, dow);
+
+  if (matchesExact) return true;
+
+  // Jitter & Delay Tolerance for external cron providers (e.g. cron-job.org firing 1-5 minutes after hour mark):
+  // Check if job hasn't executed in the last 45 minutes
+  if (lastRunAt) {
+    const lastRunTime = new Date(lastRunAt).getTime();
+    if (!isNaN(lastRunTime)) {
+      const timeSinceLastRunMins = (new Date().getTime() - lastRunTime) / 60000;
+      if (timeSinceLastRunMins < 45) {
+        return false; // Already executed recently
+      }
+    }
+  }
+
+  // Check if target scheduled minute was within the last 5 minutes (e.g. 0th minute when current min is 1, 2, 3, or 4)
+  if (minPart !== "*") {
+    for (let offset = 1; offset <= 5; offset++) {
+      const prevMin = (min - offset + 60) % 60;
+      const prevHr = min - offset < 0 ? (hr - 1 + 24) % 24 : hr;
+      if (
+        matchesCronField(minPart, prevMin) &&
+        matchesCronField(hourPart, prevHr) &&
+        matchesCronField(domPart, dom) &&
+        matchesCronField(monthPart, mon) &&
+        matchesCronField(dowPart, dow)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function matchesCronField(field: string, value: number): boolean {
