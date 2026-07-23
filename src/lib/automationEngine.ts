@@ -272,19 +272,72 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
     for (let i = 0; i < dayRanges.length; i++) {
       const range = dayRanges[i];
-      const rangeOnly = range.includes("!") ? range.split("!")[1] : range;
+      let targetGid = primarySheetGid;
+      let rangeParam = range;
 
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${primarySheetGid}&range=${encodeURIComponent(rangeOnly)}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+      // Extract tab name from range (e.g. 'Whatsapp SS'!A2:W17)
+      if (range.includes("!")) {
+        const parts = range.split("!");
+        const rawTabName = parts[0].trim().replace(/^['"]|['"]$/g, "");
+        const cellRange = parts.slice(1).join("!").trim();
 
-      addLog(`Downloading Google Sheet export for range ${range}...`);
-      const pdfRes = await fetch(exportUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+        const matchedSheet = meta.sheets?.find(
+          (s: any) => s.title?.toLowerCase() === rawTabName.toLowerCase()
+        );
 
-      if (!pdfRes.ok) {
-        addLog(`Warning: Failed to fetch PDF export for ${range} (HTTP ${pdfRes.status})`);
-        continue;
+        if (matchedSheet) {
+          targetGid = matchedSheet.sheet_id;
+        }
+        rangeParam = cellRange || range;
       }
+
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+
+      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid})...`);
+
+      let pdfRes: Response | null = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        attempts++;
+        try {
+          pdfRes = await fetch(exportUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (pdfRes.ok) break;
+
+          if (pdfRes.status === 429 || pdfRes.status === 500) {
+            addLog(`Attempt ${attempts}/${maxAttempts}: Google returned HTTP ${pdfRes.status} for ${range}. Retrying in ${attempts * 1000}ms...`);
+            await new Promise((r) => setTimeout(r, attempts * 1000));
+          } else {
+            break;
+          }
+        } catch (fetchErr: any) {
+          addLog(`Attempt ${attempts}/${maxAttempts}: Network error exporting ${range}: ${fetchErr?.message}`);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+
+      if (!pdfRes || !pdfRes.ok) {
+        // Ultimate Fallback: Try exporting with full range string
+        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${targetGid}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+        addLog(`Attempting full tab fallback export for ${range}...`);
+        const fallbackRes = await fetch(fallbackUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (fallbackRes.ok) {
+          pdfRes = fallbackRes;
+        } else {
+          addLog(`Warning: Failed to fetch PDF export for ${range} (HTTP ${pdfRes?.status || fallbackRes.status})`);
+          continue;
+        }
+      }
+
+      // Small delay between range downloads to prevent Google rate limits (HTTP 429)
+      await new Promise((r) => setTimeout(r, 500));
 
       const pdfArrayBuffer = await pdfRes.arrayBuffer();
       const base64Pdf = `data:application/pdf;base64,${Buffer.from(pdfArrayBuffer).toString("base64")}`;
