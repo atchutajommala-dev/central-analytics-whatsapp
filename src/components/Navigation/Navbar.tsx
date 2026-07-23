@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Bell,
-  Database,
   CheckCircle2,
   ChevronRight,
-  Clock,
   Sparkles,
   Command,
   RefreshCw
 } from "lucide-react";
 import { DashboardTab, SystemStatus } from "@/types/dashboard";
 import { useRefresh } from "@/context/RefreshContext";
+import PWLogo from "@/components/Common/PWLogo";
 
 interface NavbarProps {
   activeTab: DashboardTab;
@@ -33,95 +32,108 @@ export default function Navbar({
   unreadLogsCount,
 }: NavbarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const { isRefreshing, autoRefreshInterval, triggerSilentRefresh } = useRefresh();
+  const { isRefreshing, triggerSilentRefresh } = useRefresh();
+
+  // Keyboard shortcut listener for Cmd+K / Ctrl+K search focus
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        const searchInput = document.getElementById("global-search-input");
+        if (searchInput) searchInput.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const getBreadcrumbTitle = () => {
     switch (activeTab) {
       case "overview":
-        return "Operations Overview";
+        return "Overview";
       case "workflows":
       case "dags" as any:
-        return "Workflow DAG Orchestration";
+        return "Workflows";
       case "create-workflow":
-        return "Workflow Builder Wizard";
+        return "Workflow Wizard";
       case "dag-detail":
         return "DAG Detail View";
-      case "executions":
-        return "Execution Trajectory";
-      case "log-viewer":
-      case "logs" as any:
-        return "Realtime Log Viewer";
       case "monitoring":
       case "analytics" as any:
-        return "System Monitoring";
+        return "Monitoring";
       case "users":
-        return "User Management & RBAC";
+        return "User Management";
       case "settings":
-        return "System Settings";
+        return "Settings";
       default:
         return "Dashboard";
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-theme bg-header-theme backdrop-blur-md transition-colors duration-250">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-        {/* Left: Brand Breadcrumb */}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 text-xs sm:text-sm text-muted-theme">
-            <span className="font-bold text-primary-theme flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#f06a55] animate-pulse"></span>
-              PW Scheduler Platform
-            </span>
-            <ChevronRight className="h-3.5 w-3.5 text-subtle-theme" />
-            <span className="font-semibold text-[#f06a55]">
-              {getBreadcrumbTitle()}
+    <header className="sticky top-0 z-40 w-full border-b border-theme bg-card-theme/90 backdrop-blur-xl shadow-xs transition-all duration-200">
+      <div className="flex h-14 items-center justify-between px-4 sm:px-6">
+        {/* Left: Brand Logo & Breadcrumb */}
+        <div className="flex items-center space-x-3 shrink-0">
+          <div
+            onClick={() => setActiveTab("overview")}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <PWLogo size="sm" />
+            <span className="font-extrabold text-sm tracking-tight text-primary-theme group-hover:text-[#f06a55] transition-colors">
+              PW Scheduler
             </span>
           </div>
 
-          {/* Quick System Readiness Badge */}
-          {systemStatus && (
-            <div className="hidden lg:flex items-center space-x-2 pl-4 border-l border-theme">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-card-theme text-secondary-theme border border-theme">
-                <Clock className="w-3 h-3 text-[#f06a55]" />
-                {systemStatus.ist_time || "IST Ready"}
-              </span>
-            </div>
-          )}
+          <ChevronRight className="h-3.5 w-3.5 text-subtle-theme" />
+
+          {/* Breadcrumb Pill */}
+          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-input-theme text-[#f06a55] border border-[#f06a55]/20 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#f06a55]"></span>
+            {getBreadcrumbTitle()}
+          </span>
         </div>
 
-        {/* Center: Search input */}
-        <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+        {/* Center: Sleek Search Bar */}
+        <div className="hidden md:flex items-center flex-1 max-w-lg mx-6">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-subtle-theme" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle-theme" />
             <input
+              id="global-search-input"
               type="text"
-              placeholder="Search workflows, ranges, destinations, logs..."
+              placeholder="Search workflows, ranges, destinations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-12 py-1.5 text-xs sm:text-sm bg-input-theme text-primary-theme placeholder-subtle-theme rounded-xl border border-theme focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 focus:border-[#f06a55] transition-all duration-250"
+              className="w-full pl-9 pr-12 py-1.5 text-xs bg-input-theme/80 text-primary-theme placeholder-subtle-theme rounded-xl border border-theme focus:outline-none focus:ring-2 focus:ring-[#f06a55]/40 focus:border-[#f06a55] transition-all"
             />
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-muted-theme bg-surface rounded border border-theme">
-              <Command className="w-3 h-3" />K
+            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-muted-theme bg-surface rounded-md border border-theme">
+              <Command className="w-2.5 h-2.5" />K
             </kbd>
           </div>
         </div>
 
-        {/* Right: Silent Refresh & Notifications Bell */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Silent Refresh Button */}
+        {/* Right Controls */}
+        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          {/* Operational Status Indicator */}
+          <div className="hidden lg:flex items-center space-x-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Operational
+            </span>
+          </div>
+
+          {/* Sync Button */}
           <button
-            onClick={triggerSilentRefresh}
+            onClick={() => triggerSilentRefresh()}
             disabled={isRefreshing}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold btn-secondary-theme flex items-center gap-1.5 transition select-none"
-            title="Trigger instant silent background refresh"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold btn-secondary-theme flex items-center gap-1.5 transition select-none"
+            title="Refresh workspace data"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#f06a55] ${isRefreshing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline font-mono text-[11px]">
-              {isRefreshing ? "Syncing..." : `Sync (${autoRefreshInterval}s)`}
-            </span>
+            <span className="hidden sm:inline">Sync</span>
           </button>
 
+          {/* Notifications Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -142,37 +154,27 @@ export default function Navbar({
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#f06a55]" />
                     <span className="text-xs font-bold uppercase tracking-wider text-primary-theme">
-                      Notifications
+                      System Status
                     </span>
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#f06a55]/10 text-[#f06a55] font-semibold">
-                    Realtime Engine
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                    Live Engine
                   </span>
                 </div>
 
-                <div className="py-3 space-y-2.5 max-h-64 overflow-y-auto">
+                <div className="py-3 space-y-2.5">
                   <div className="flex items-start gap-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-xs font-semibold text-primary-theme">
-                        Engine Operational
+                        All Systems Operational
                       </p>
                       <p className="text-[11px] text-muted-theme mt-0.5">
-                        Connected to database and automation scheduler engine.
+                        Connected to MongoDB & WhatsApp Automation Engine.
                       </p>
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => {
-                    setShowNotifications(false);
-                    setActiveTab("log-viewer");
-                  }}
-                  className="w-full mt-2 py-1.5 text-xs text-center text-[#f06a55] hover:underline font-bold"
-                >
-                  Inspect All Logs →
-                </button>
               </div>
             )}
           </div>
