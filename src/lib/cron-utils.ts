@@ -201,6 +201,30 @@ export function getNextRun(expression: string, timezone: string = "Asia/Kolkata"
   return null;
 }
 
+export function isCronDue(expression?: string, timezone: string = "Asia/Kolkata"): boolean {
+  if (!expression || expression.trim() === "") return true;
+  const validation = validateCron(expression);
+  if (!validation.valid) return true;
+
+  const now = new Date();
+  const min = now.getMinutes();
+  const hr = now.getHours();
+  const dom = now.getDate();
+  const mon = now.getMonth() + 1;
+  const dow = now.getDay();
+
+  const parts = expression.trim().split(/\s+/);
+  const [minPart, hourPart, domPart, monthPart, dowPart] = parts;
+
+  return (
+    matchesCronField(minPart, min) &&
+    matchesCronField(hourPart, hr) &&
+    matchesCronField(domPart, dom) &&
+    matchesCronField(monthPart, mon) &&
+    matchesCronField(dowPart, dow)
+  );
+}
+
 function matchesCronField(field: string, value: number): boolean {
   if (field === "*") return true;
 

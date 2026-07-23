@@ -107,6 +107,8 @@ except Exception as e:
   return childResult;
 }
 
+import { isCronDue, getNextRun } from "@/lib/cron-utils";
+
 export async function executeAutomationController(payload: any) {
   if (payload?.job_id || payload?.sheet_id) {
     return await executeSinglePayload(payload);
@@ -123,23 +125,40 @@ export async function executeAutomationController(payload: any) {
     if (activeJobs && activeJobs.length > 0) {
       const results: any[] = [];
       for (const job of activeJobs) {
-        const jobPayload = {
-          job_id: String(job._id),
-          job_name: job.name,
-          sheet_id: job.source?.spreadsheet_id || (job as any).sheet_id,
-          sheet_name: job.source?.selected_worksheets?.[0]?.title || (job as any).sheet_name,
-          vd_report_sheet_name: (job as any).vd_report_sheet_name,
-          destinations: (job as any).destinations || [],
-          aisensy_campaign_name: (job as any).aisensy_campaign_name,
-          custom_fields: (job as any).custom_fields || {},
-          force_run: payload?.force_run || false,
-          dry_run: payload?.dry_run || false,
-        };
-        const res = await executeSinglePayload(jobPayload);
-        results.push(res);
+        const cronExpr = job.schedule?.cron_expression || (job as any).cron_expression;
+        const isDue = payload?.force_run || isCronDue(cronExpr, job.schedule?.timezone || "Asia/Kolkata");
+
+        if (isDue) {
+          const jobPayload = {
+            job_id: String(job._id),
+            job_name: job.name,
+            sheet_id: job.source?.spreadsheet_id || (job as any).sheet_id,
+            sheet_name: job.source?.selected_worksheets?.[0]?.title || (job as any).sheet_name,
+            vd_report_sheet_name: (job as any).vd_report_sheet_name,
+            destinations: (job as any).destinations || [],
+            aisensy_campaign_name: (job as any).aisensy_campaign_name,
+            custom_fields: (job as any).custom_fields || {},
+            force_run: payload?.force_run || false,
+            dry_run: payload?.dry_run || false,
+          };
+          const res = await executeSinglePayload(jobPayload);
+          results.push(res);
+
+          // Update next_run calculation
+          if (cronExpr) {
+            const nextRunDate = getNextRun(cronExpr, job.schedule?.timezone || "Asia/Kolkata");
+            if (nextRunDate) {
+              await db.collection("jobs").updateOne(
+                { _id: job._id },
+                { $set: { next_run: nextRunDate.toISOString() } }
+              );
+            }
+          }
+        }
       }
       return {
         status: "completed_multi_jobs",
+        jobs_evaluated: activeJobs.length,
         jobs_executed: results.length,
         results,
       };
