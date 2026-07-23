@@ -65,8 +65,18 @@ function DashboardContent() {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
       if (user) {
+        const userEmail = (user.email || "").toLowerCase();
+        if (!userEmail.endsWith("@pw.live")) {
+          await logoutFirebase();
+          setCurrentUser(null);
+          setDbUser(null);
+          showToast("Access Denied: Only @pw.live organizational accounts are authorized.");
+          setAuthLoading(false);
+          return;
+        }
+
+        setCurrentUser(user);
         try {
           const res = await fetch("/api/auth/sync", {
             method: "POST",
@@ -81,11 +91,17 @@ function DashboardContent() {
           const data = await res.json();
           if (data.user) {
             setDbUser(data.user);
+          } else if (data.error) {
+            await logoutFirebase();
+            setCurrentUser(null);
+            setDbUser(null);
+            showToast(data.error);
           }
         } catch (e) {
           console.error("Auth role sync error:", e);
         }
       } else {
+        setCurrentUser(null);
         setDbUser(null);
       }
       setAuthLoading(false);

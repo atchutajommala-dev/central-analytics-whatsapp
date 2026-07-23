@@ -6,8 +6,14 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { uid, email, displayName, photoURL } = body;
 
-    if (!uid || !email) {
-      return NextResponse.json({ error: "Missing required user fields" }, { status: 400 });
+    const userEmailLower = email.trim().toLowerCase();
+
+    // Enforce strict @pw.live organizational domain authorization
+    if (!userEmailLower.endsWith("@pw.live")) {
+      return NextResponse.json(
+        { error: "Access Denied: Only @pw.live organizational email addresses are authorized to sign in." },
+        { status: 403 }
+      );
     }
 
     const { db } = await connectToDatabase();
@@ -20,7 +26,6 @@ export async function POST(req: Request) {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
 
-    const userEmailLower = email.trim().toLowerCase();
     const isEnvAdmin = adminEmails.includes(userEmailLower);
 
     // Check if user exists by UID or Email (pre-added by admin)

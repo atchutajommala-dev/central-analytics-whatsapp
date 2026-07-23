@@ -72,7 +72,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           {/* Security Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f06a55]/10 text-[#f06a55] text-xs font-bold uppercase tracking-wide border border-[#f06a55]/20">
             <Shield className="w-3.5 h-3.5" />
-            Restricted Enterprise Access
+            Physics Wallah (@pw.live Only)
           </div>
 
           <div className="space-y-2">
@@ -80,7 +80,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               Sign In to Analytics
             </h2>
             <p className="text-xs sm:text-sm text-secondary-theme leading-relaxed font-normal">
-              Sign in with your authorized Google Account to manage DAG workflows, trigger WhatsApp dispatches, and inspect audit logs.
+              Restricted enterprise access. Only official <strong>@pw.live</strong> Google accounts are authorized to sign in.
             </p>
           </div>
 
