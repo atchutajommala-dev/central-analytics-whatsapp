@@ -362,13 +362,10 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       const uploadJson = await uploadRes.json().catch(() => ({}));
       if (uploadRes.ok && uploadJson.secure_url) {
-        // Cloudinary native transformation to crop whitespace (c_trim) and render 100% canvas table image
+        // Cloudinary native transformation to render PDF as high-quality JPG image for WhatsApp (HTTP 200)
         let imageUrl = uploadJson.secure_url;
         if (imageUrl.endsWith(".pdf")) {
-          const transform = cropWhitespace
-            ? "f_jpg,pg_1,c_trim,g_north_west,q_auto:best,dpr_2.0,w_1600/"
-            : "f_jpg,pg_1,q_auto:best,w_1600/";
-          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", `/upload/${transform}`);
+          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", "/upload/f_jpg,pg_1,q_auto:best,w_1600/");
         }
         uploadedUrls.push(imageUrl);
         addLog(`Cloudinary 100% canvas export success: ${imageUrl}`);
