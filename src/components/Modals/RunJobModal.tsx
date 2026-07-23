@@ -45,6 +45,7 @@ export default function RunJobModal({
         ?.filter((d) => d.enabled)
         .flatMap((d) => (d.config?.phone_numbers as string[]) || []),
       aisensy_campaign_name: job.destinations?.find((d) => d.type === "whatsapp")?.config?.campaign_name || "",
+      export_config: job.export_config,
       force_run: forceRun,
       dry_run: dryRun,
     };

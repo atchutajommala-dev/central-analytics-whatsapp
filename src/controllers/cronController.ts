@@ -194,6 +194,7 @@ export async function executeAutomationController(payload: any) {
             destination_configs: (job as any).destination_configs || job.destinations?.filter((d: { enabled: boolean }) => d.enabled) || [],
             aisensy_campaign_name: (job as any).aisensy_campaign_name || job.destinations?.find((d: { type: string }) => d.type === "whatsapp")?.config?.campaign_name || "",
             custom_fields: (job as any).custom_fields || {},
+            export_config: job.export_config || (job as any).export_config,
             force_run: payload?.force_run || false,
             dry_run: payload?.dry_run || false,
           };

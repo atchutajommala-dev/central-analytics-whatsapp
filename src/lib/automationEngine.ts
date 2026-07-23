@@ -297,10 +297,17 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
       const cropWhitespace = exportConfig.crop_whitespace !== false;
       const orientation = (exportConfig.orientation || "landscape").toLowerCase();
       const portraitParam = orientation === "portrait" ? "true" : "false";
+      const pageSize = (exportConfig.page_size || "A1").toLowerCase();
+      const quality = exportConfig.quality || 95;
+      const dpi = exportConfig.dpi || 360;
 
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=A1&fitw=${fitWidth ? "true" : "false"}&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=${showGridlines ? "true" : "false"}&printtitle=false`;
+      // Calculate crisp rendering width dynamically from user-selected DPI (e.g. 72 -> 1200px, 360 -> 2400px, 600 -> 3200px)
+      const targetWidth = Math.min(3200, Math.max(1200, Math.round((dpi / 72) * 500)));
+      const qualityFlag = quality >= 95 ? "q_100" : `q_${quality}`;
 
-      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid}, HD Vector Size: A1)...`);
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=${pageSize}&fitw=${fitWidth ? "true" : "false"}&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=${showGridlines ? "true" : "false"}&printtitle=false`;
+
+      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid}, Size: ${pageSize.toUpperCase()}, Orient: ${orientation}, DPI: ${dpi}, Quality: ${quality}%)...`);
 
       let pdfRes: Response | null = null;
       let attempts = 0;
@@ -329,7 +336,7 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       if (!pdfRes || !pdfRes.ok) {
         // Ultimate Fallback: Try exporting with full range string
-        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&size=A1&fitw=true&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=false&printtitle=false`;
+        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&size=${pageSize}&fitw=true&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=false&printtitle=false`;
         addLog(`Attempting full tab fallback export for ${range}...`);
         const fallbackRes = await fetch(fallbackUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -362,13 +369,14 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       const uploadJson = await uploadRes.json().catch(() => ({}));
       if (uploadRes.ok && uploadJson.secure_url) {
-        // Cloudinary native transformation with e_trim to auto-crop blank margins and render 100% table canvas
+        // Cloudinary native transformation dynamically applying DPI, Quality %, and optional e_trim
         let imageUrl = uploadJson.secure_url;
         if (imageUrl.endsWith(".pdf")) {
-          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", "/upload/f_jpg,pg_1,e_trim,q_auto:best,w_1600/");
+          const trimFlag = cropWhitespace ? "e_trim," : "";
+          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", `/upload/f_jpg,pg_1,${trimFlag}${qualityFlag},w_${targetWidth}/`);
         }
         uploadedUrls.push(imageUrl);
-        addLog(`Cloudinary 100% cropped canvas export success: ${imageUrl}`);
+        addLog(`Cloudinary HD export success (${targetWidth}px, ${qualityFlag}): ${imageUrl}`);
       } else {
         addLog(`Cloudinary upload error: ${uploadJson?.error?.message || uploadRes.statusText}`);
       }
