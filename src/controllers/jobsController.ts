@@ -47,7 +47,7 @@ export async function getJobsController(params: {
             { job_name: job.name },
             ...(ObjectId.isValid(strId) ? [{ job_id: new ObjectId(strId) }] : []),
           ],
-        })
+        } as any)
         .sort({ started_at: -1 })
         .limit(50)
         .toArray();
@@ -65,7 +65,7 @@ export async function getJobsController(params: {
           total_runs: Math.max(job.total_runs || 0, totalRuns),
           success_count: Math.max(job.success_count || 0, succCount),
           failure_count: totalRuns - succCount,
-          last_run_at: job.last_run_at || (job as any).last_run || lastExec.started_at || lastExec.start_time,
+          last_run_at: job.last_run_at || (job as any).last_run || (lastExec as any).started_at || lastExec.start_time,
           last_status: lastExec.status || "success",
           avg_duration_ms: job.avg_duration_ms || avgDur,
         };
@@ -134,7 +134,7 @@ export async function getJobByIdController(id: string) {
       total_runs: Math.max(job.total_runs || 0, totalRuns),
       success_count: Math.max(job.success_count || 0, succCount),
       failure_count: totalRuns - succCount,
-      last_run_at: job.last_run_at || (job as any).last_run || lastExec.started_at || lastExec.start_time,
+      last_run_at: job.last_run_at || (job as any).last_run || (lastExec as any).started_at || lastExec.start_time,
       last_status: lastExec.status || "success",
       avg_duration_ms: job.avg_duration_ms || avgDur,
     };

@@ -381,6 +381,7 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
       await db.collection("executions").insertOne(executionDoc as any);
 
       if (payload.job_id && payload.job_id !== "default_job") {
+        const isSuccess = true;
         const strId = String(payload.job_id);
         const jobQuery: any = {
           $or: [

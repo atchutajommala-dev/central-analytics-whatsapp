@@ -94,7 +94,7 @@ export default function DagDetailView({
   const nextRun = job.schedule?.cron_expression ? getNextRun(job.schedule.cron_expression) : null;
   const statusStyle = STATUS_STYLES[job.status] || STATUS_STYLES.active;
 
-  const lastRunTime = job.last_run_at || (job as any).last_run || executions[0]?.started_at || executions[0]?.start_time;
+  const lastRunTime = job.last_run_at || (job as any).last_run || (executions[0] as any)?.started_at || executions[0]?.start_time;
   const totalRuns = Math.max(job.total_runs || 0, executions.length);
   const successCount = job.success_count || executions.filter((e) => e.status === "success").length;
   const avgDurationMs = job.avg_duration_ms || (executions.length > 0 ? Math.round(executions.reduce((acc, e) => acc + (e.duration_ms || 0), 0) / executions.length) : 0);
