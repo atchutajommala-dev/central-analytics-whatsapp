@@ -62,14 +62,24 @@ export async function getJobByIdController(id: string) {
 
   if (!job) return null;
 
+  const jobStrId = String(job._id);
+  const execQuery: any = {
+    $or: [
+      { job_id: jobStrId },
+      { job_id: id },
+      ...(ObjectId.isValid(jobStrId) ? [{ job_id: new ObjectId(jobStrId) }] : []),
+      ...(ObjectId.isValid(id) ? [{ job_id: new ObjectId(id) }] : []),
+    ],
+  };
+
   const recentExecutions = await db
     .collection<ExecutionDocument>("executions")
-    .find({ job_id: String(job._id) })
+    .find(execQuery)
     .sort({ started_at: -1 })
-    .limit(10)
+    .limit(50)
     .toArray();
 
-  return { job, recent_executions: recentExecutions };
+  return { job, executions: recentExecutions, recent_executions: recentExecutions };
 }
 
 export async function createJobController(jobData: Omit<WorkflowJob, "_id">, user: string = "system") {

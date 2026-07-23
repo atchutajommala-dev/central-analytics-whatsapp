@@ -17,6 +17,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "PW Central Analytics | Enterprise Dashboard",
   description: "Enterprise WhatsApp Automation DAG Engine & Realtime Control Center for Physics Wallah.",
+  icons: {
+    icon: "/pw_cat_logo.png",
+    shortcut: "/pw_cat_logo.png",
+    apple: "/pw_cat_logo.png",
+  },
 };
 
 export default function RootLayout({

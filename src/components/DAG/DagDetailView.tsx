@@ -52,7 +52,7 @@ export default function DagDetailView({
       if (res.ok) {
         const data = await res.json();
         setJob(data.job);
-        setExecutions(data.executions || []);
+        setExecutions(data.executions || data.recent_executions || []);
       }
     } catch (err) {
       console.error("Failed to fetch job:", err);
