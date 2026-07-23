@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import path from "path";
 import { connectToDatabase } from "@/lib/mongodb";
+import { executeAutomationPayloadJS } from "@/lib/automationEngine";
 
 export async function executeSinglePayload(payload: any) {
   const projectRoot = process.cwd();
@@ -45,14 +46,17 @@ except Exception as e:
       }
     });
   } catch (err: any) {
-    console.warn("Python execution warning:", err?.message);
-    childResult = {
-      status: "success",
-      message: "Cron trigger received and recorded successfully.",
-      python_status: "bypassed_serverless_env",
-      error: err?.message,
-      logs: [`Trigger received at ${startTime} for job: ${payload.job_name || payload.job_id || "manual"}`],
-    };
+    console.warn("Python execution unavailable/failed, executing Native JS Engine:", err?.message);
+    try {
+      childResult = await executeAutomationPayloadJS(payload);
+    } catch (jsErr: any) {
+      childResult = {
+        status: "error",
+        message: "Automation execution failed on both Python & Native JS Engine.",
+        error: jsErr?.message || err?.message,
+        logs: [`Trigger received at ${startTime} for job: ${payload.job_name || payload.job_id || "manual"}`],
+      };
+    }
   }
 
   const endTime = new Date().toISOString();

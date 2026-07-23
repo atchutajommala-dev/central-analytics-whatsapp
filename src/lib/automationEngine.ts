@@ -1,0 +1,404 @@
+import crypto from "crypto";
+import { connectToDatabase } from "@/lib/mongodb";
+
+// ============================================================================
+// Google OAuth & Credentials Utilities
+// ============================================================================
+
+export function parseGoogleCredentials(raw: string): any {
+  if (!raw || typeof raw !== "string") {
+    throw new Error("GOOGLE_CREDENTIALS_JSON environment variable is empty or invalid");
+  }
+
+  let str = raw.trim();
+  if ((str.startsWith("'") && str.endsWith("'")) || (str.startsWith('"') && str.endsWith('"'))) {
+    const inner = str.slice(1, -1).trim();
+    if (inner.startsWith("{") || inner.startsWith("\\{")) {
+      str = inner;
+    }
+  }
+
+  let parsed: any;
+  for (let pass = 0; pass < 3; pass++) {
+    try {
+      parsed = JSON.parse(str);
+      if (typeof parsed === "object" && parsed !== null) break;
+      if (typeof parsed === "string") str = parsed.trim();
+    } catch {
+      str = str
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, "__NEWLINE__")
+        .replace(/\\\\/g, "\\");
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    const safeStr = str.replace(/\n/g, "\\n").replace(/__NEWLINE__/g, "\\n");
+    parsed = JSON.parse(safeStr);
+  }
+
+  if (parsed && parsed.private_key) {
+    let pk = String(parsed.private_key);
+    pk = pk.replace(/__NEWLINE__/g, "\n").replace(/\\n/g, "\n");
+    const lines = pk.split("\n").map((l) => l.trim()).filter(Boolean);
+    parsed.private_key = lines.join("\n") + "\n";
+  }
+
+  return parsed;
+}
+
+export async function getGoogleAccessToken(rawCreds?: string): Promise<string> {
+  const raw = rawCreds || process.env.GOOGLE_CREDENTIALS_JSON || "";
+  const creds = parseGoogleCredentials(raw);
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const claimSet = {
+    iss: creds.client_email,
+    scope: "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const base64Header = Buffer.from(JSON.stringify(header)).toString("base64url");
+  const base64ClaimSet = Buffer.from(JSON.stringify(claimSet)).toString("base64url");
+  const signatureInput = `${base64Header}.${base64ClaimSet}`;
+
+  const signer = crypto.createSign("RSA-SHA256");
+  signer.update(signatureInput);
+  const signature = signer.sign(creds.private_key, "base64url");
+
+  const jwt = `${signatureInput}.${signature}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  const tokenData = await tokenRes.json();
+  if (!tokenRes.ok || !tokenData.access_token) {
+    throw new Error(`Google OAuth error: ${tokenData.error_description || tokenData.error || tokenRes.statusText}`);
+  }
+
+  return tokenData.access_token;
+}
+
+// ============================================================================
+// Google Sheets Metadata Helper
+// ============================================================================
+
+export async function fetchSpreadsheetMetadataJS(sheetId: string) {
+  if (!sheetId) throw new Error("Missing sheet_id parameter");
+
+  const token = await getGoogleAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=spreadsheetId,properties.title,sheets.properties`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error?.message || `Google API error (HTTP ${res.status})`);
+  }
+
+  const data = await res.json();
+  const sheetsList = (data.sheets || []).map((s: any) => ({
+    sheet_id: s.properties?.sheetId,
+    title: s.properties?.title,
+    index: s.properties?.index,
+    row_count: s.properties?.gridProperties?.rowCount,
+    column_count: s.properties?.gridProperties?.columnCount,
+  }));
+
+  return {
+    status: "success",
+    spreadsheet_id: sheetId,
+    title: data.properties?.title || "Google Sheet",
+    sheets: sheetsList,
+  };
+}
+
+// ============================================================================
+// Pure JS/TS Automation Execution Engine
+// ============================================================================
+
+export async function executeAutomationPayloadJS(payload: any = {}) {
+  const startTime = new Date();
+  const logs: string[] = [];
+  const addLog = (msg: string) => {
+    const timestamp = new Date().toISOString();
+    logs.push(`${timestamp} | INFO | ${msg}`);
+  };
+
+  const jobId = String(payload.job_id || "default_job");
+  const jobName = String(payload.job_name || "Automation Job");
+  addLog(`Starting native Serverless JS automation for job '${jobName}'`);
+
+  const sheetId = payload.sheet_id || process.env.SHEET_ID;
+  const cloudName = (process.env.CLOUD_NAME || "").trim().replace(/['"]/g, "");
+  const uploadPreset = (process.env.UPLOAD_PRESET || "").trim().replace(/['"]/g, "");
+  const aisensyApiKey = (process.env.AISENSY_API_KEY || "").trim().replace(/['"]/g, "");
+
+  let destinations: string[] = [];
+  if (typeof payload.destinations === "string") {
+    destinations = payload.destinations.split(",").map((d: string) => d.trim()).filter(Boolean);
+  } else if (Array.isArray(payload.destinations)) {
+    destinations = payload.destinations.map((d: any) => String(d).trim()).filter(Boolean);
+  }
+  if (destinations.length === 0) {
+    const defaultDests = process.env.DESTINATIONS || process.env.TEST_RECIPIENT_PHONE || "916303054457";
+    destinations = defaultDests.split(",").map((d) => d.trim()).filter(Boolean);
+  }
+
+  const aisensyCampaignName = payload.aisensy_campaign_name || process.env.AISENSY_CAMPAIGN_NAME || "Online Analytics Whatsapp Automation";
+  const forceRun = Boolean(payload.force_run);
+  const dryRun = Boolean(payload.dry_run);
+
+  const missingEnvs: string[] = [];
+  if (!sheetId) missingEnvs.push("sheet_id / SHEET_ID");
+  if (!cloudName) missingEnvs.push("CLOUD_NAME");
+  if (!uploadPreset) missingEnvs.push("UPLOAD_PRESET");
+  if (!dryRun) {
+    if (!aisensyApiKey) missingEnvs.push("AISENSY_API_KEY");
+    if (destinations.length === 0) missingEnvs.push("destinations");
+  }
+
+  if (missingEnvs.length > 0) {
+    throw new Error(`Missing required configuration: ${missingEnvs.join(", ")}`);
+  }
+
+  const uploadedUrls: string[] = [];
+  let sentCount = 0;
+
+  try {
+    addLog(`Authenticating Google Service Account...`);
+    const accessToken = await getGoogleAccessToken();
+    addLog(`Google Access Token generated successfully.`);
+
+    // Fetch spreadsheet metadata to get sheet GIDs
+    const meta = await fetchSpreadsheetMetadataJS(sheetId);
+    const primarySheetName = payload.sheet_name || process.env.SHEET_NAME || meta.sheets?.[0]?.title || "Sheet1";
+    const primarySheetGid = meta.sheets?.find((s: any) => s.title === primarySheetName)?.sheet_id || 0;
+
+    // Evaluate ranges
+    let dayRanges: string[] = [];
+    if (payload.custom_range || payload.sheet_range) {
+      const customRange = String(payload.custom_range || payload.sheet_range);
+      dayRanges = customRange.split(",").map((r) => r.trim()).filter(Boolean);
+    } else {
+      dayRanges = [`A1:R30`]; // Default export range
+    }
+
+    addLog(`Exporting ${dayRanges.length} Google Sheet range(s) from sheet '${primarySheetName}' (GID: ${primarySheetGid})...`);
+
+    const dateFolder = new Date().toISOString().split("T")[0];
+
+    for (let i = 0; i < dayRanges.length; i++) {
+      const range = dayRanges[i];
+      const rangeOnly = range.includes("!") ? range.split("!")[1] : range;
+
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${primarySheetGid}&range=${encodeURIComponent(rangeOnly)}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+
+      addLog(`Downloading Google Sheet export for range ${range}...`);
+      const pdfRes = await fetch(exportUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!pdfRes.ok) {
+        addLog(`Warning: Failed to fetch PDF export for ${range} (HTTP ${pdfRes.status})`);
+        continue;
+      }
+
+      const pdfArrayBuffer = await pdfRes.arrayBuffer();
+      const base64Pdf = `data:application/pdf;base64,${Buffer.from(pdfArrayBuffer).toString("base64")}`;
+
+      addLog(`Uploading PDF export to Cloudinary (${cloudName})...`);
+      const formData = new URLSearchParams();
+      formData.append("file", base64Pdf);
+      formData.append("upload_preset", uploadPreset);
+      formData.append("folder", `Central_Analytics_Exports/${dateFolder}`);
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadJson = await uploadRes.json().catch(() => ({}));
+      if (uploadRes.ok && uploadJson.secure_url) {
+        // Cloudinary native transformation to render PDF as high-quality JPG image for WhatsApp
+        let imageUrl = uploadJson.secure_url;
+        if (imageUrl.endsWith(".pdf")) {
+          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", "/upload/f_jpg,pg_1,q_auto:best/");
+        }
+        uploadedUrls.push(imageUrl);
+        addLog(`Cloudinary upload success: ${imageUrl}`);
+      } else {
+        addLog(`Cloudinary upload error: ${uploadJson?.error?.message || uploadRes.statusText}`);
+      }
+    }
+
+    // Dispatches
+    if (uploadedUrls.length > 0) {
+      if (dryRun) {
+        addLog(`Dry run enabled. Skipping WhatsApp and webhook dispatches.`);
+      } else {
+        // 1. WhatsApp Dispatch via AISensy
+        for (const dest of destinations) {
+          for (let i = 0; i < uploadedUrls.length; i++) {
+            const url = uploadedUrls[i];
+            const aisensyPayload = {
+              apiKey: aisensyApiKey,
+              campaignName: aisensyCampaignName,
+              destination: dest,
+              userName: "PW Online- Analytics",
+              templateParams: [new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })],
+              source: "serverless-automation-engine",
+              media: { url, filename: `table_${i + 1}.jpg` },
+            };
+
+            try {
+              const aiRes = await fetch("https://backend.aisensy.com/campaign/t1/api", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(aisensyPayload),
+              });
+              addLog(`WhatsApp dispatch to ${dest} status: ${aiRes.status}`);
+              if (aiRes.ok) sentCount++;
+            } catch (destErr: any) {
+              addLog(`WhatsApp dispatch error to ${dest}: ${destErr?.message}`);
+            }
+          }
+        }
+
+        // 2. Webhooks & Slack
+        const destConfigs = payload.destination_configs || [];
+        for (const dConf of destConfigs) {
+          const dType = dConf.type;
+          const dCfg = dConf.config || {};
+
+          if (["slack", "webhook", "rest_api"].includes(dType)) {
+            const webhookUrl = dCfg.webhook_url || dCfg.url;
+            if (webhookUrl) {
+              for (const url of uploadedUrls) {
+                try {
+                  const slackPayload = {
+                    text: `📊 *${jobName}* — Google Sheet Export Report (${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })})`,
+                    blocks: [
+                      {
+                        type: "section",
+                        text: { type: "mrkdwn", text: `📊 *${jobName}* — Dispatched Export Report\n*Sheet ID:* \`${sheetId}\`` },
+                      },
+                      { type: "image", image_url: url, alt_text: jobName },
+                    ],
+                  };
+
+                  const hookRes = await fetch(webhookUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(slackPayload),
+                  });
+                  addLog(`${dType.toUpperCase()} webhook status: ${hookRes.status}`);
+                  if (hookRes.ok) sentCount++;
+                } catch (hookErr: any) {
+                  addLog(`${dType.toUpperCase()} webhook error: ${hookErr?.message}`);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const endTime = new Date();
+    const durationMs = endTime.getTime() - startTime.getTime();
+    addLog(`Automation run completed successfully in ${durationMs}ms. Sent ${sentCount} dispatches.`);
+
+    // Persist to MongoDB
+    try {
+      const { db } = await connectToDatabase();
+      const executionDoc = {
+        job_id: jobId,
+        job_name: jobName,
+        run_number: 1,
+        start_time: startTime,
+        started_at: startTime.toISOString(),
+        end_time: endTime,
+        completed_at: endTime.toISOString(),
+        duration_ms: durationMs,
+        status: "success",
+        exit_code: 0,
+        retry_count: 0,
+        trigger_type: forceRun ? "manual" : "scheduled",
+        logs,
+        artifacts: uploadedUrls.map((url, i) => ({
+          id: `art_${i}`,
+          type: "image",
+          name: `export_${i + 1}.jpg`,
+          url,
+          size_bytes: 0,
+          content_type: "image/jpeg",
+          created_at: endTime.toISOString(),
+        })),
+        engine: "native_serverless_js",
+      };
+
+      await db.collection("executions").insertOne(executionDoc as any);
+
+      if (payload.job_id && payload.job_id !== "default_job") {
+        await db.collection("jobs").updateOne(
+          { _id: payload.job_id as any },
+          {
+            $inc: { total_runs: 1, success_count: 1 },
+            $set: { last_run: endTime.toISOString(), last_status: "success" },
+          }
+        );
+      }
+    } catch (dbErr: any) {
+      addLog(`Warning: MongoDB persistence failed: ${dbErr?.message}`);
+    }
+
+    return {
+      status: "success",
+      message: "Serverless JS Automation completed successfully.",
+      engine: "native_serverless_js",
+      uploaded_urls: uploadedUrls,
+      sent_count: sentCount,
+      duration_ms: durationMs,
+      logs,
+    };
+  } catch (err: any) {
+    const endTime = new Date();
+    const durationMs = endTime.getTime() - startTime.getTime();
+    addLog(`Error in JS Automation: ${err?.message}`);
+
+    try {
+      const { db } = await connectToDatabase();
+      await db.collection("executions").insertOne({
+        job_id: jobId,
+        job_name: jobName,
+        start_time: startTime,
+        started_at: startTime.toISOString(),
+        end_time: endTime,
+        completed_at: endTime.toISOString(),
+        duration_ms: durationMs,
+        status: "error",
+        error: err?.message,
+        logs,
+        engine: "native_serverless_js",
+      } as any);
+    } catch {}
+
+    return {
+      status: "error",
+      engine: "native_serverless_js",
+      error: err?.message || "Automation failed",
+      logs,
+    };
+  }
+}

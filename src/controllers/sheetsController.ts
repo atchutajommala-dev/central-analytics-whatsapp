@@ -1,4 +1,5 @@
 import { execFile } from "child_process";
+import { fetchSpreadsheetMetadataJS } from "@/lib/automationEngine";
 
 export async function fetchSpreadsheetMetadataController(sheetId: string) {
   if (!sheetId) {
@@ -51,27 +52,33 @@ except Exception as e:
     print(json.dumps({'status': 'error', 'error': str(e)}))
 `;
 
-  return new Promise<any>((resolve, reject) => {
-    execFile(
-      pythonExec,
-      ["-c", pythonCode, sheetId],
-      { cwd: projectRoot, env: { ...process.env }, timeout: 15000 },
-      (err, stdout, stderr) => {
-        if (err && !stdout) {
-          reject(new Error(stderr || err.message));
-          return;
-        }
-        try {
-          const parsed = JSON.parse(stdout.trim());
-          if (parsed.status === "error") {
-            reject(new Error(parsed.error));
-          } else {
-            resolve(parsed);
+  try {
+    return await new Promise<any>((resolve, reject) => {
+      execFile(
+        pythonExec,
+        ["-c", pythonCode, sheetId],
+        { cwd: projectRoot, env: { ...process.env }, timeout: 15000 },
+        (err, stdout, stderr) => {
+          if (err && !stdout) {
+            reject(new Error(stderr || err.message));
+            return;
           }
-        } catch {
-          reject(new Error(stderr || stdout || "Failed to parse Google Sheets metadata"));
+          try {
+            const parsed = JSON.parse(stdout.trim());
+            if (parsed.status === "error") {
+              reject(new Error(parsed.error));
+            } else {
+              resolve(parsed);
+            }
+          } catch {
+            reject(new Error(stderr || stdout || "Failed to parse Google Sheets metadata"));
+          }
         }
-      }
-    );
-  });
+      );
+    });
+  } catch (pythonErr: any) {
+    console.warn("Python execution unavailable/failed, using Native JS Sheets API:", pythonErr?.message);
+    return await fetchSpreadsheetMetadataJS(sheetId);
+  }
 }
+
