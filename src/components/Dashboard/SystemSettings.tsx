@@ -24,7 +24,6 @@ export default function SystemSettings({ systemStatus, onCheckStatus }: SystemSe
     { key: "CLOUD_NAME", label: "Cloudinary Cloud Name Storage", status: systemStatus?.env_status?.CLOUD_NAME },
     { key: "UPLOAD_PRESET", label: "Cloudinary PDF Upload Preset", status: systemStatus?.env_status?.UPLOAD_PRESET },
     { key: "AISENSY_API_KEY", label: "AISensy WhatsApp API Token", status: systemStatus?.env_status?.AISENSY_API_KEY },
-    { key: "DESTINATIONS", label: "Recipient Phone Numbers", status: systemStatus?.env_status?.DESTINATIONS },
     { key: "CRON_SECRET", label: "Vercel Cron Secret Protection", status: systemStatus?.env_status?.CRON_SECRET },
     { key: "FIREBASE_AUTH", label: "Firebase Identity Authentication", status: systemStatus?.env_status?.FIREBASE_AUTH },
   ];
