@@ -389,31 +389,42 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
           for (let i = 0; i < uploadedUrls.length; i++) {
             const url = uploadedUrls[i];
-            const aisensyPayload = {
+            let aisensyPayload: any = {
               apiKey: aisensyApiKey,
               campaignName: aisensyCampaignName,
               destination: cleanPhone,
               userName: "PW Online Analytics",
-              templateParams: [url, formattedDate],
+              templateParams: [formattedDate],
               source: "serverless-automation-engine",
-              media: {
-                url: url,
-                filename: `analytics_report_${i + 1}.jpg`,
-                type: "IMAGE",
-              },
+              media: { url, filename: `table_${i + 1}.jpg` },
             };
 
             try {
-              const aiRes = await fetch("https://backend.aisensy.com/campaign/t1/api", {
+              let aiRes = await fetch("https://backend.aisensy.com/campaign/t1/api", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(aisensyPayload),
               });
 
-              const aiJson = await aiRes.json().catch(() => ({}));
+              let aiJson = await aiRes.json().catch(() => ({}));
+
+              // Retry fallback with empty templateParams if template has 0 params
+              if (!aiRes.ok || aiJson.success === false) {
+                if (aiJson?.message?.includes("Template params")) {
+                  addLog(`Retrying AiSensy dispatch with zero templateParams fallback for ${cleanPhone}...`);
+                  aisensyPayload.templateParams = [];
+                  aiRes = await fetch("https://backend.aisensy.com/campaign/t1/api", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(aisensyPayload),
+                  });
+                  aiJson = await aiRes.json().catch(() => ({}));
+                }
+              }
+
               addLog(`WhatsApp dispatch to ${cleanPhone} status: ${aiRes.status} | Response: ${JSON.stringify(aiJson)}`);
 
-              if (aiRes.ok && (aiJson.success !== false)) {
+              if (aiRes.ok && aiJson.success !== false) {
                 sentCount++;
               }
             } catch (destErr: any) {
