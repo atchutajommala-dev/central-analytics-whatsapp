@@ -36,6 +36,7 @@ interface JobsTableProps {
   onOpenNewJobModal: () => void;
   onViewJobLogs: (jobId: string) => void;
   onSelectJob?: (jobId: string) => void;
+  onToggleJobStatus?: (jobId: string, newStatus: "active" | "inactive") => void;
 }
 
 export default function JobsTable({
@@ -48,6 +49,7 @@ export default function JobsTable({
   onOpenNewJobModal,
   onViewJobLogs,
   onSelectJob,
+  onToggleJobStatus,
 }: JobsTableProps) {
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused" | "disabled">("all");
@@ -186,15 +188,34 @@ export default function JobsTable({
                               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
                             <div className="flex flex-col">
-                              <button
-                                onClick={() => onSelectJob && onSelectJob(job._id)}
-                                className="text-left font-bold text-primary-theme hover:text-[#f06a55] transition flex items-center gap-1.5"
-                              >
-                                <span>{job.name}</span>
-                                <span className="text-[10px] font-normal text-muted-theme">v{job.version || 1}</span>
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => onSelectJob && onSelectJob(job._id)}
+                                  className="text-left font-bold text-primary-theme hover:text-[#f06a55] transition flex items-center gap-1.5"
+                                >
+                                  <span>{job.name}</span>
+                                  <span className="text-[10px] font-normal text-muted-theme">v{job.version || 1}</span>
+                                </button>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleJobStatus && onToggleJobStatus(job._id, (job.status === "active" && job.enabled !== false) ? "inactive" : "active");
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition border cursor-pointer ${
+                                    job.status === "active" && job.enabled !== false
+                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                                  }`}
+                                  title={`Click to switch to ${job.status === "active" && job.enabled !== false ? "Inactive" : "Active"}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${job.status === "active" && job.enabled !== false ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                                  <span>{job.status === "active" && job.enabled !== false ? "Active" : "Inactive"}</span>
+                                </button>
+                              </div>
+
                               {job.tags && job.tags.length > 0 && (
-                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                <div className="flex items-center gap-1 mt-1 flex-wrap">
                                   {job.tags.slice(0, 3).map((t) => (
                                     <span key={t} className="text-[9px] px-1.5 py-0.2 rounded bg-input-theme text-muted-theme font-semibold">
                                       #{t}

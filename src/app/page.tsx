@@ -228,6 +228,29 @@ function DashboardContent() {
     }
   };
 
+  const handleToggleJobStatus = async (jobId: string, newStatus: "active" | "inactive") => {
+    try {
+      const isEnabled = newStatus === "active";
+      const res = await fetch("/api/jobs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          _id: jobId,
+          status: newStatus,
+          enabled: isEnabled,
+        }),
+      });
+      if (res.ok) {
+        showToast(`Workflow set to ${newStatus.toUpperCase()}`);
+        await fetchData(true);
+      } else {
+        showToast("Failed to update status");
+      }
+    } catch (e: any) {
+      showToast(`Error updating status: ${e?.message}`);
+    }
+  };
+
   const handleDeleteJob = async (jobId: string) => {
     if (!confirm("Are you sure you want to delete this workflow DAG?")) return;
     try {
@@ -365,6 +388,7 @@ function DashboardContent() {
                 setSelectedJobId(id);
                 setActiveTab("dag-detail");
               }}
+              onToggleJobStatus={handleToggleJobStatus}
             />
           )}
 
@@ -394,6 +418,7 @@ function DashboardContent() {
               }}
               onDelete={handleDeleteJob}
               setActiveTab={setActiveTab}
+              onToggleStatus={handleToggleJobStatus}
             />
           )}
 

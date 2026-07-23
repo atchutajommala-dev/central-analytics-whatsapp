@@ -252,8 +252,17 @@ export default function ExecutiveOverview({
                   className="p-3 rounded-xl bg-app border border-theme flex items-center justify-between gap-3 text-xs"
                 >
                   <div className="min-w-0 cursor-pointer" onClick={() => onSelectJob && onSelectJob(job._id)}>
-                    <p className="font-bold text-primary-theme truncate hover:text-[#f06a55] transition">{job.name}</p>
-                    <p className="text-[10px] text-muted-theme font-mono">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-primary-theme truncate hover:text-[#f06a55] transition">{job.name}</p>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-extrabold uppercase border ${
+                        job.status === "active" && job.enabled !== false
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                      }`}>
+                        {job.status === "active" && job.enabled !== false ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-theme font-mono mt-0.5">
                       {job.destinations?.length || 0} Destinations | {job.schedule?.cron_expression || job.schedule?.type || "Manual"}
                     </p>
                   </div>
