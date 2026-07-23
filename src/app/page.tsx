@@ -394,18 +394,32 @@ function DashboardContent() {
           )}
 
           {activeTab === "users" && (
-            <UserManagement
-              users={users}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              onOpenAddUserModal={() => setAddUserModalOpen(true)}
-              onUpdateUserRole={handleUpdateUserRole}
-              currentUserRole={dbUser?.role || "admin"}
-            />
+            (dbUser?.role || "admin").toLowerCase() === "admin" ? (
+              <UserManagement
+                users={users}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onOpenAddUserModal={() => setAddUserModalOpen(true)}
+                onUpdateUserRole={handleUpdateUserRole}
+                currentUserRole={dbUser?.role || "admin"}
+              />
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-base font-extrabold text-[#f06a55]">Access Restricted</p>
+                <p className="text-xs text-muted-theme mt-1">User Management & RBAC is restricted to Admin role.</p>
+              </div>
+            )
           )}
 
           {activeTab === "settings" && (
-            <SystemSettings systemStatus={systemStatus} onCheckStatus={fetchData} />
+            (dbUser?.role || "admin").toLowerCase() === "admin" ? (
+              <SystemSettings systemStatus={systemStatus} onCheckStatus={fetchData} />
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-base font-extrabold text-[#f06a55]">Access Restricted</p>
+                <p className="text-xs text-muted-theme mt-1">System Settings page is restricted to Admin role.</p>
+              </div>
+            )
           )}
         </main>
       </div>

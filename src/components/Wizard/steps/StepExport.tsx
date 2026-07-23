@@ -12,13 +12,8 @@ interface StepExportProps {
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; desc: string; icon: React.ElementType }[] = [
   { value: "jpeg", label: "JPEG", desc: "Compressed image, ideal for WhatsApp", icon: Image },
-  { value: "png", label: "PNG", desc: "Lossless image with transparency support", icon: Image },
-  { value: "pdf", label: "PDF", desc: "Document format, great for email", icon: FileText },
-  { value: "webp", label: "WebP", desc: "Modern format, smaller file size", icon: Image },
-  { value: "svg", label: "SVG", desc: "Vector graphics, scalable", icon: Code },
-  { value: "csv", label: "CSV", desc: "Raw data export", icon: FileSpreadsheet },
-  { value: "excel", label: "Excel", desc: "Spreadsheet format (.xlsx)", icon: FileSpreadsheet },
-  { value: "zip", label: "ZIP", desc: "Compressed archive of outputs", icon: Archive },
+  { value: "png", label: "PNG", desc: "Lossless image with high resolution", icon: Image },
+  { value: "pdf", label: "PDF", desc: "Document format, ideal for Email", icon: FileText },
 ];
 
 export default function StepExport({ state, onChange }: StepExportProps) {

@@ -51,12 +51,17 @@ export default function Sidebar({
 }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
 
-  const navItems = [
+  const userRole = (dbUser?.role || "admin").toLowerCase();
+  const isAdmin = userRole === "admin";
+  const isViewer = userRole === "viewer";
+
+  const allNavItems = [
     {
       id: "overview" as DashboardTab,
       label: "Overview",
       icon: LayoutDashboard,
       badge: null,
+      roles: ["admin", "dev", "operator", "viewer"],
     },
     {
       id: "workflows" as DashboardTab,
@@ -64,6 +69,7 @@ export default function Sidebar({
       icon: Workflow,
       badge: activeJobsCount > 0 ? `${activeJobsCount} Active` : null,
       badgeColor: "bg-[#f06a55]/20 text-[#f06a55] border-[#f06a55]/30",
+      roles: ["admin", "dev", "operator", "viewer"],
     },
     {
       id: "create-workflow" as DashboardTab,
@@ -71,6 +77,7 @@ export default function Sidebar({
       icon: PlusCircle,
       badge: "Wizard",
       badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+      roles: ["admin", "dev", "operator"],
     },
     {
       id: "monitoring" as DashboardTab,
@@ -78,6 +85,7 @@ export default function Sidebar({
       icon: Activity,
       badge: "Live",
       badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      roles: ["admin", "dev", "operator", "viewer"],
     },
     {
       id: "users" as DashboardTab,
@@ -85,14 +93,18 @@ export default function Sidebar({
       icon: Users,
       badge: "RBAC",
       badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+      roles: ["admin"],
     },
     {
       id: "settings" as DashboardTab,
       label: "System Settings",
       icon: Settings,
       badge: null,
+      roles: ["admin"],
     },
   ];
+
+  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
 
   return (
     <aside

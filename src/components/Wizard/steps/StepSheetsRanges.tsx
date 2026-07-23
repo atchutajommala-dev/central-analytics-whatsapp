@@ -252,7 +252,22 @@ export default function StepSheetsRanges({ state, onChange }: StepSheetsRangesPr
           <div className="relative">
             <select
               value={selectedSheetTitle}
-              onChange={(e) => setSelectedSheetTitle(e.target.value)}
+              onChange={(e) => {
+                const title = e.target.value;
+                setSelectedSheetTitle(title);
+                const match = availableSheets.find((s) => s.title === title);
+                if (match) {
+                  const exists = state.source.selected_worksheets.some((s) => s.title === title);
+                  if (!exists) {
+                    onChange({
+                      source: {
+                        ...state.source,
+                        selected_worksheets: [...state.source.selected_worksheets, match],
+                      },
+                    });
+                  }
+                }
+              }}
               className="w-full px-3 py-2.5 bg-input-theme text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs font-semibold appearance-none pr-8"
             >
               {availableSheets.map((sheet) => (

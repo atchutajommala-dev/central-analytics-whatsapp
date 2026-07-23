@@ -73,17 +73,11 @@ export default function Navbar({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-theme bg-card-theme/90 backdrop-blur-xl shadow-xs transition-all duration-200">
       <div className="flex h-14 items-center justify-between px-4 sm:px-6">
-        {/* Left: Brand Logo & Breadcrumb */}
-        <div className="flex items-center space-x-3 shrink-0">
-          <div
-            onClick={() => setActiveTab("overview")}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
-            <PWLogo size="sm" />
-            <span className="font-extrabold text-sm tracking-tight text-primary-theme group-hover:text-[#f06a55] transition-colors">
-              PW Scheduler
-            </span>
-          </div>
+        {/* Left: Clean Breadcrumb */}
+        <div className="flex items-center space-x-2 shrink-0">
+          <span className="font-extrabold text-xs tracking-wider text-muted-theme uppercase">
+            PW Scheduler Engine
+          </span>
 
           <ChevronRight className="h-3.5 w-3.5 text-subtle-theme" />
 
