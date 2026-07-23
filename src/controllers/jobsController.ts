@@ -1,6 +1,7 @@
 import { connectToDatabase, JobDocument, ExecutionDocument, AuditDocument } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { WorkflowJob } from "@/types/dashboard";
+import { getNextRun } from "@/lib/cron-utils";
 
 export async function getJobsController(params: {
   search?: string;
@@ -117,24 +118,38 @@ export async function createJobController(jobData: Omit<WorkflowJob, "_id">, use
 
 export async function updateJobController(id: string, updates: Partial<WorkflowJob>, user: string = "system") {
   const { db } = await connectToDatabase();
+  const cleanId = String(id || (updates as any)?._id || (updates as any)?.id || "");
   let query: any = {};
 
-  if (ObjectId.isValid(id)) {
-    query._id = new ObjectId(id);
+  if (ObjectId.isValid(cleanId)) {
+    query.$or = [{ _id: new ObjectId(cleanId) }, { _id: cleanId }];
   } else {
-    query._id = id;
+    query._id = cleanId;
   }
 
   const existing = await db.collection<JobDocument>("jobs").findOne(query);
   if (!existing) return null;
 
+  // EXCLUDE _id FROM UPDATES TO PREVENT MONGODB IMMUTABLE FIELD ERROR
+  const { _id, ...safeUpdates } = updates as any;
+
   const now = new Date().toISOString();
-  const updateDoc = {
-    ...updates,
+  const updateDoc: any = {
+    ...safeUpdates,
     updated_at: now,
     updated_by: user,
     version: (existing.version || 1) + 1,
   };
+
+  // Recalculate next_run if schedule cron expression is updated
+  const newCronExpr = safeUpdates.schedule?.cron_expression;
+  const newTz = safeUpdates.schedule?.timezone || existing.schedule?.timezone || "Asia/Kolkata";
+  if (newCronExpr) {
+    const nextRunDate = getNextRun(newCronExpr, newTz);
+    if (nextRunDate) {
+      updateDoc.next_run = nextRunDate.toISOString();
+    }
+  }
 
   await db.collection("jobs").updateOne(query, { $set: updateDoc } as any);
   const updatedJob = await db.collection<JobDocument>("jobs").findOne(query);
@@ -146,7 +161,7 @@ export async function updateJobController(id: string, updates: Partial<WorkflowJ
     target_type: "job",
     target_id: String(existing._id),
     timestamp: new Date(),
-    details: { updates },
+    details: { updates: safeUpdates },
   });
 
   return updatedJob;
