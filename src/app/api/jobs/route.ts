@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
-import { getJobsController, createJobController } from "@/controllers/jobsController";
+import { getJobsController, createJobController, updateJobController, deleteJobController } from "@/controllers/jobsController";
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
 
 export async function GET(req: Request) {
   try {
@@ -28,5 +39,44 @@ export async function POST(req: Request) {
     return NextResponse.json(created, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { searchParams } = new URL(req.url);
+    const id = body._id || body.id || searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Job ID (_id) is required for update" }, { status: 400 });
+    }
+
+    const updated = await updateJobController(String(id), body, body.updated_by || "user");
+    if (!updated) {
+      return NextResponse.json({ error: `Job not found for ID: ${id}` }, { status: 404 });
+    }
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Failed to update job" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id") || searchParams.get("job_id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Job ID (id) query parameter is required" }, { status: 400 });
+    }
+
+    const success = await deleteJobController(id);
+    if (!success) {
+      return NextResponse.json({ error: `Job not found for ID: ${id}` }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, message: `Job ${id} deleted` });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Failed to delete job" }, { status: 500 });
   }
 }
