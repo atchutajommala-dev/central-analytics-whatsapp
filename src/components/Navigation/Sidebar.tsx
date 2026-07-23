@@ -22,6 +22,7 @@ import {
 import { DashboardTab, DbUser } from "@/types/dashboard";
 import { User } from "firebase/auth";
 import { useTheme } from "@/context/ThemeContext";
+import PWLogo from "@/components/Common/PWLogo";
 
 interface SidebarProps {
   activeTab: DashboardTab;
@@ -114,24 +115,17 @@ export default function Sidebar({
     >
       {/* Brand Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-theme">
-        {!collapsed && (
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#f06a55] flex items-center justify-center shadow-lg shadow-[#f06a55]/25 text-white font-black text-xs tracking-tight">
-              PW
-            </div>
-            <div>
-              <h1 className="text-xs font-extrabold uppercase tracking-wider text-primary-theme leading-tight">
-                Physics Wallah
-              </h1>
-              <p className="text-[10px] text-[#f06a55] font-bold tracking-wide">
-                SCHEDULER ENGINE
-              </p>
+        {!collapsed ? (
+          <div className="flex items-center gap-2.5">
+            <PWLogo size="md" />
+            <div className="flex flex-col leading-none">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-primary-theme">Physics Wallah</span>
+              <span className="text-[10px] text-[#f06a55] font-bold tracking-wider mt-0.5">SCHEDULER ENGINE</span>
             </div>
           </div>
-        )}
-        {collapsed && (
-          <div className="mx-auto w-8 h-8 rounded-xl bg-[#f06a55] flex items-center justify-center font-black text-white text-xs shadow-md">
-            PW
+        ) : (
+          <div className="mx-auto">
+            <PWLogo size="sm" />
           </div>
         )}
 

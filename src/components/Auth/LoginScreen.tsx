@@ -11,6 +11,7 @@ import {
   ScrollText
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import PWLogo from "@/components/Common/PWLogo";
 
 interface LoginScreenProps {
   onLogin: () => Promise<void>;
@@ -38,17 +39,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       {/* Header */}
       <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-10">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#f06a55] flex items-center justify-center shadow-lg shadow-[#f06a55]/30 text-white font-black text-sm tracking-tight">
-            PW
-          </div>
-          <div>
-            <h1 className="text-xs font-bold uppercase tracking-wider text-primary-theme leading-tight">
-              Physics Wallah
-            </h1>
-            <p className="text-[10px] text-[#f06a55] font-bold tracking-wide">
-              CENTRAL ANALYTICS ENGINE
-            </p>
+        <div className="flex items-center gap-2.5">
+          <PWLogo size="lg" />
+          <div className="flex flex-col leading-none">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-theme">Physics Wallah</span>
+            <span className="text-[10px] text-[#f06a55] font-bold tracking-wide">CENTRAL ANALYTICS ENGINE</span>
           </div>
         </div>
 
@@ -69,6 +64,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       {/* Main Login Form Card */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 z-10">
         <div className="w-full max-w-md p-8 sm:p-10 space-y-6 text-center pw-card shadow-2xl transition-colors duration-250">
+          {/* Central PW Hero Symbol */}
+          <div className="flex justify-center pt-2">
+            <PWLogo size="xl" />
+          </div>
+
           {/* Security Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f06a55]/10 text-[#f06a55] text-xs font-bold uppercase tracking-wide border border-[#f06a55]/20">
             <Shield className="w-3.5 h-3.5" />
