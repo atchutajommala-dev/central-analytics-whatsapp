@@ -73,19 +73,6 @@ export default function Sidebar({
       badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     },
     {
-      id: "executions" as DashboardTab,
-      label: "Executions",
-      icon: ListOrdered,
-      badge: null,
-    },
-    {
-      id: "log-viewer" as DashboardTab,
-      label: "Log Viewer",
-      icon: ScrollText,
-      badge: totalLogsCount > 0 ? `${totalLogsCount}` : null,
-      badgeColor: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20",
-    },
-    {
       id: "monitoring" as DashboardTab,
       label: "Monitoring",
       icon: Activity,

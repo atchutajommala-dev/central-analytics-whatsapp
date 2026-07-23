@@ -332,8 +332,8 @@ export default function DashboardPage() {
                 setActiveTab("create-workflow");
               }}
               onViewJobLogs={(jobId) => {
-                setSearchQuery(jobId);
-                setActiveTab("log-viewer");
+                setSelectedJobId(jobId);
+                setActiveTab("dag-detail");
               }}
               onSelectJob={(id) => {
                 setSelectedJobId(id);

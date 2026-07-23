@@ -10,6 +10,7 @@ import { WorkflowJob, ExecutionRecord, DashboardTab } from "@/types/dashboard";
 import { cronToHuman, getNextRun, formatRelativeTime } from "@/lib/cron-utils";
 import DagGraph from "@/components/DAG/DagGraph";
 import ExecutionHistory from "@/components/DAG/ExecutionHistory";
+import LogViewer from "@/components/Logs/LogViewer";
 
 interface DagDetailViewProps {
   jobId: string;
@@ -39,7 +40,7 @@ export default function DagDetailView({
   const [job, setJob] = useState<WorkflowJob | null>(null);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<"graph" | "history" | "config">("graph");
+  const [activeSection, setActiveSection] = useState<"graph" | "history" | "logs" | "config">("graph");
 
   useEffect(() => {
     fetchJobDetail();
@@ -164,7 +165,7 @@ export default function DagDetailView({
 
       {/* Section Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-input-theme border border-theme">
-        {(["graph", "history", "config"] as const).map((section) => (
+        {(["graph", "history", "logs", "config"] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -172,7 +173,13 @@ export default function DagDetailView({
               activeSection === section ? "bg-[#f06a55] text-white shadow-sm" : "text-muted-theme hover:text-primary-theme"
             }`}
           >
-            {section === "graph" ? "DAG Graph" : section === "history" ? "Execution History" : "Configuration"}
+            {section === "graph"
+              ? "DAG Graph"
+              : section === "history"
+              ? `Executions (${executions.length})`
+              : section === "logs"
+              ? "Log Viewer"
+              : "Configuration"}
           </button>
         ))}
       </div>
@@ -180,6 +187,13 @@ export default function DagDetailView({
       {/* Section Content */}
       {activeSection === "graph" && <DagGraph job={job} />}
       {activeSection === "history" && <ExecutionHistory jobId={jobId} executions={executions} />}
+      {activeSection === "logs" && (
+        <LogViewer
+          logs={executions.flatMap((e) => e.logs || [])}
+          title={`DAG Log Stream — ${job.name}`}
+          onRefresh={fetchJobDetail}
+        />
+      )}
       {activeSection === "config" && (
         <div className="pw-card p-4">
           <pre className="text-xs font-mono text-secondary-theme overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap">
