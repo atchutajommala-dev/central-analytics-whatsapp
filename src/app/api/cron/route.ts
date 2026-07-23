@@ -1,18 +1,30 @@
 import { NextResponse } from "next/server";
 import { executeAutomationController } from "@/controllers/cronController";
 
+import crypto from "crypto";
+
 function isAuthorized(req: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return true; // If no secret configured, allow execution
 
+  // Standard encrypted HTTPS headers (Never logged in server query strings)
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   const customHeader = req.headers.get("x-cron-secret") || "";
+  const signatureHeader = req.headers.get("x-cron-signature") || "";
 
-  const url = new URL(req.url);
-  const querySecret = url.searchParams.get("secret") || "";
+  // 1. Direct Secret match via Encrypted HTTPS Header
+  if (token === cronSecret || customHeader === cronSecret) {
+    return true;
+  }
 
-  return token === cronSecret || customHeader === cronSecret || querySecret === cronSecret;
+  // 2. SHA-256 Hashed Secret digest match
+  const expectedHash = crypto.createHash("sha256").update(cronSecret).digest("hex");
+  if (token === expectedHash || customHeader === expectedHash || signatureHeader === `sha256=${expectedHash}`) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function OPTIONS() {
