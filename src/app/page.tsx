@@ -94,8 +94,10 @@ function DashboardContent() {
     return () => unsubscribe();
   }, []);
 
-  const fetchData = async () => {
-    setLoadingData(true);
+  const fetchData = async (silent: boolean = false) => {
+    if (!silent && jobs.length === 0) {
+      setLoadingData(true);
+    }
     try {
       const statusRes = await fetch("/api/status");
       if (statusRes.ok) {
@@ -130,7 +132,7 @@ function DashboardContent() {
   useEffect(() => {
     fetchData();
     const unregister = registerRefreshHandler(async () => {
-      await fetchData();
+      await fetchData(true);
     });
     return unregister;
   }, [registerRefreshHandler]);

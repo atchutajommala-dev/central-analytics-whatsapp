@@ -12,7 +12,7 @@ interface RefreshContextType {
 
 const RefreshContext = createContext<RefreshContextType>({
   isRefreshing: false,
-  autoRefreshInterval: 30,
+  autoRefreshInterval: 0,
   setAutoRefreshInterval: () => {},
   triggerSilentRefresh: async () => {},
   registerRefreshHandler: () => () => {},
@@ -20,7 +20,7 @@ const RefreshContext = createContext<RefreshContextType>({
 
 export const RefreshProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState(30); // Default 30s
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(0); // Default 0 (Disabled)
   const [handlers, setHandlers] = useState<Array<() => Promise<void>>>([]);
 
   const registerRefreshHandler = useCallback((handler: () => Promise<void>) => {

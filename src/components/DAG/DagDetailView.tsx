@@ -54,8 +54,10 @@ export default function DagDetailView({
     return unregister;
   }, [jobId, registerRefreshHandler]);
 
-  const fetchJobDetail = async () => {
-    setLoading(true);
+  const fetchJobDetail = async (silent: boolean = false) => {
+    if (!silent && !job) {
+      setLoading(true);
+    }
     try {
       const res = await fetch(`/api/jobs/${jobId}`);
       if (res.ok) {
@@ -134,7 +136,7 @@ export default function DagDetailView({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={fetchJobDetail} className="px-3 py-1.5 rounded-xl btn-secondary-theme text-xs font-bold flex items-center gap-1.5">
+          <button onClick={() => fetchJobDetail(false)} className="px-3 py-1.5 rounded-xl btn-secondary-theme text-xs font-bold flex items-center gap-1.5">
             <RefreshCw className="w-3.5 h-3.5 text-[#f06a55]" /> Refresh
           </button>
           <button onClick={() => onEdit(job)} className="px-3 py-1.5 rounded-xl btn-secondary-theme text-xs font-bold flex items-center gap-1.5">
