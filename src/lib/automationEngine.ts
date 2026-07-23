@@ -291,9 +291,16 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
         rangeParam = cellRange || range;
       }
 
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+      const exportConfig = payload.export_config || {};
+      const fitWidth = exportConfig.fit_width !== false;
+      const showGridlines = !!exportConfig.gridlines;
+      const cropWhitespace = exportConfig.crop_whitespace !== false;
+      const orientation = (exportConfig.orientation || "landscape").toLowerCase();
+      const portraitParam = orientation === "portrait" ? "true" : "false";
 
-      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid})...`);
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=letter&fitw=${fitWidth ? "true" : "false"}&scale=4&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=${showGridlines ? "true" : "false"}&printtitle=false`;
+
+      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid}, FitWidth: 100%)...`);
 
       let pdfRes: Response | null = null;
       let attempts = 0;
@@ -322,7 +329,7 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       if (!pdfRes || !pdfRes.ok) {
         // Ultimate Fallback: Try exporting with full range string
-        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=false&gid=${targetGid}&size=A2&scale=5&top_margin=0.25&bottom_margin=0.25&left_margin=0.25&right_margin=0.25&fzr=false&gridlines=false&printtitle=false`;
+        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&size=letter&fitw=true&scale=4&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=false&printtitle=false`;
         addLog(`Attempting full tab fallback export for ${range}...`);
         const fallbackRes = await fetch(fallbackUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -355,13 +362,16 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       const uploadJson = await uploadRes.json().catch(() => ({}));
       if (uploadRes.ok && uploadJson.secure_url) {
-        // Cloudinary native transformation to render PDF as high-quality JPG image for WhatsApp
+        // Cloudinary native transformation to crop whitespace (c_trim) and render 100% canvas table image
         let imageUrl = uploadJson.secure_url;
         if (imageUrl.endsWith(".pdf")) {
-          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", "/upload/f_jpg,pg_1,q_auto:best/");
+          const transform = cropWhitespace
+            ? "f_jpg,pg_1,c_trim,g_north_west,q_auto:best,dpr_2.0,w_1600/"
+            : "f_jpg,pg_1,q_auto:best,w_1600/";
+          imageUrl = imageUrl.replace(/\.pdf$/i, ".jpg").replace("/upload/", `/upload/${transform}`);
         }
         uploadedUrls.push(imageUrl);
-        addLog(`Cloudinary upload success: ${imageUrl}`);
+        addLog(`Cloudinary 100% canvas export success: ${imageUrl}`);
       } else {
         addLog(`Cloudinary upload error: ${uploadJson?.error?.message || uploadRes.statusText}`);
       }

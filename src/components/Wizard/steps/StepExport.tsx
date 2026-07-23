@@ -140,23 +140,21 @@ export default function StepExport({ state, onChange }: StepExportProps) {
       {isImageFormat && (
         <div>
           <label className="block text-xs font-bold text-secondary-theme mb-2">Processing Options</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {([
-              { key: "crop_whitespace", label: "Crop Whitespace" },
-              { key: "transparent_background", label: "Transparent BG" },
-              { key: "dark_theme", label: "Dark Theme" },
-              { key: "anti_aliasing", label: "Anti-aliasing" },
-              { key: "fit_width", label: "Fit Width" },
+              { key: "crop_whitespace", label: "Crop Whitespace (100% Fill Canvas)" },
+              { key: "fit_width", label: "Fit Page Width" },
+              { key: "gridlines", label: "Show Gridlines" },
               { key: "include_timestamp", label: "Add Timestamp" },
             ] as const).map((opt) => (
-              <label key={opt.key} className="flex items-center gap-2 p-2 rounded-xl border border-theme bg-app cursor-pointer select-none hover:border-[#f06a55]/30 transition">
+              <label key={opt.key} className="flex items-center gap-2 p-2.5 rounded-xl border border-theme bg-app cursor-pointer select-none hover:border-[#f06a55]/30 transition">
                 <input
                   type="checkbox"
-                  checked={!!ec[opt.key]}
+                  checked={ec[opt.key] !== undefined ? !!ec[opt.key] : opt.key === "crop_whitespace" || opt.key === "fit_width"}
                   onChange={(e) => updateExport({ [opt.key]: e.target.checked })}
-                  className="w-3.5 h-3.5 rounded text-[#f06a55] accent-[#f06a55]"
+                  className="w-4 h-4 rounded text-[#f06a55] accent-[#f06a55]"
                 />
-                <span className="text-[11px] font-semibold text-primary-theme">{opt.label}</span>
+                <span className="text-xs font-semibold text-primary-theme">{opt.label}</span>
               </label>
             ))}
           </div>

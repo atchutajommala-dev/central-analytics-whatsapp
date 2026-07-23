@@ -103,6 +103,7 @@ export interface ExportConfig {
   watermark?: string;
   filename_pattern?: string; // supports variables
   include_timestamp?: boolean;
+  gridlines?: boolean;
 }
 
 // ---------------------------------------------------------------------------
