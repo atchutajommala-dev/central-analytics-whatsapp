@@ -41,29 +41,35 @@ export default function AnalyticsCharts({ jobs, logs }: AnalyticsChartsProps) {
   const tooltipBg = isDark ? "#1e232a" : "#ffffff";
   const tooltipBorder = isDark ? "#384252" : "#cbd5e1";
 
-  // Real Throughput calculation from logs & jobs
+  // Real Throughput calculation from active execution timestamps
   const timeSlots = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "23:59"];
   const throughputData = timeSlots.map((timeSlot) => {
     let successCount = 0;
     let failedCount = 0;
     const slotHour = parseInt(timeSlot.split(":")[0], 10);
 
+    // 1. Check logs for timestamp match
     logs.forEach((log) => {
-      if (!log.timestamp) return;
-      const date = new Date(log.timestamp);
-      const hour = date.getHours();
-      if (Math.abs(hour - slotHour) <= 2) {
+      const ts = log.timestamp || (log as any).created_at || (log as any).started_at;
+      if (!ts) return;
+      const hour = new Date(ts).getHours();
+      if (Math.abs(hour - slotHour) <= 1) {
         if (log.status === "success") successCount += log.sent_count || 1;
         else if (log.status === "failed" || log.status === "error") failedCount += 1;
       }
     });
 
-    if (successCount === 0 && jobs.length > 0) {
-      jobs.forEach((j) => {
-        successCount += Math.max(j.success_count || j.total_runs || 0, 1);
-        failedCount += j.failure_count || 0;
-      });
-    }
+    // 2. Map jobs to their actual last_run_at hour slot for realistic throughput curve
+    jobs.forEach((job) => {
+      const ts = job.last_run_at || (job as any).last_run;
+      if (ts) {
+        const runHour = new Date(ts).getHours();
+        if (Math.abs(runHour - slotHour) <= 1) {
+          successCount = Math.max(successCount, job.total_runs || job.success_count || 1);
+          failedCount += job.failure_count || 0;
+        }
+      }
+    });
 
     return {
       time: timeSlot,
@@ -88,17 +94,19 @@ export default function AnalyticsCharts({ jobs, logs }: AnalyticsChartsProps) {
   const successTotal = logs.length > 0
     ? logs.filter((l) => l.status === "success").length
     : jobs.reduce((acc, j) => acc + (j.success_count || j.total_runs || 0), 0);
+  const runningTotal = logs.filter((l) => l.status === "running" || l.status === "queued").length;
   const errorTotal = logs.length > 0
     ? logs.filter((l) => l.status === "failed" || l.status === "error").length
     : jobs.reduce((acc, j) => acc + (j.failure_count || 0), 0);
 
   const successPct = Math.min(100, Math.round((successTotal / Math.max(totalExecs, 1)) * 100) || 100);
-  const failedPct = Math.max(0, 100 - successPct);
+  const runningPct = Math.round((runningTotal / Math.max(totalExecs, 1)) * 100);
+  const failedPct = Math.max(0, 100 - successPct - runningPct);
 
   const statusPieData = [
     { name: "Successful", value: successPct, color: "#f06a55" },
-    { name: "Queued / Running", value: 0, color: "#3b82f6" },
-    { name: "Failed / Error", value: failedPct, color: "#ef4444" },
+    ...(runningPct > 0 ? [{ name: "Queued / Running", value: runningPct, color: "#3b82f6" }] : []),
+    ...(failedPct > 0 ? [{ name: "Failed / Error", value: failedPct, color: "#ef4444" }] : []),
   ];
 
   // Dynamic Heatmap calculation
