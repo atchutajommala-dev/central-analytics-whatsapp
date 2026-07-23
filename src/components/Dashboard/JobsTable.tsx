@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { WorkflowJob } from "@/types/dashboard";
 import { cronToHuman, getNextRun, formatRelativeTime } from "@/lib/cron-utils";
+import NextRunCountdown from "@/components/Common/NextRunCountdown";
 
 interface JobsTableProps {
   jobs: WorkflowJob[];
@@ -240,7 +241,9 @@ export default function JobsTable({
                               <span>{job.schedule?.cron_expression || job.schedule?.type || "Manual"}</span>
                             </div>
                             {nextRun && (
-                              <span className="text-[10px] text-muted-theme">Next: {formatRelativeTime(nextRun)}</span>
+                              <span className="text-[10px] text-muted-theme flex items-center gap-1">
+                                Next: <NextRunCountdown targetDate={nextRun} />
+                              </span>
                             )}
                           </div>
                         </td>

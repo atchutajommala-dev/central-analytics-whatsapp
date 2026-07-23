@@ -150,7 +150,20 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
   if (typeof payload.destinations === "string") {
     destinations = payload.destinations.split(",").map((d: string) => d.trim()).filter(Boolean);
   } else if (Array.isArray(payload.destinations)) {
-    destinations = payload.destinations.map((d: any) => String(d).trim()).filter(Boolean);
+    destinations = payload.destinations
+      .flatMap((d: any) => {
+        if (typeof d === "string") return [d.trim()];
+        if (typeof d === "object" && d !== null) {
+          if (Array.isArray(d.config?.phone_numbers)) return d.config.phone_numbers.map(String);
+          if (Array.isArray(d.phone_numbers)) return d.phone_numbers.map(String);
+          if (typeof d.phone_number === "string") return [d.phone_number];
+          if (typeof d.destination === "string") return [d.destination];
+          if (typeof d.value === "string") return [d.value];
+        }
+        return [];
+      })
+      .map((d: string) => d.trim())
+      .filter(Boolean);
   }
   if (destinations.length === 0) {
     const defaultDests = process.env.DESTINATIONS || process.env.TEST_RECIPIENT_PHONE || "916303054457";

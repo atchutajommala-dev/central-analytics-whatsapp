@@ -353,11 +353,13 @@ export function formatRelativeTime(date: Date | null): string {
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
 
-  if (diffMs < 0) return "overdue";
+  if (diffMs <= 0) return "due now";
 
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "in less than a minute";
-  if (diffMins < 60) return `in ${diffMins}m`;
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `in ${diffSecs}s`;
+
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60) return `in ${diffMins}m ${diffSecs % 60}s`;
 
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `in ${diffHours}h ${diffMins % 60}m`;

@@ -144,8 +144,22 @@ export async function executeAutomationController(payload: any) {
         const isDue = payload?.force_run || payload?.run || isCronDue(cronExpr, tz, lastRunAt);
 
         if (isDue) {
+          const rawDests = job.destinations || (job as any).destinations || [];
+          const destinations = Array.isArray(rawDests)
+            ? rawDests
+                .filter((d: any) => d && d.enabled !== false)
+                .flatMap((d: any) => {
+                  if (typeof d === "string") return [d];
+                  if (typeof d === "object" && d !== null) {
+                    if (Array.isArray(d.config?.phone_numbers)) return d.config.phone_numbers;
+                    if (Array.isArray(d.phone_numbers)) return d.phone_numbers;
+                    if (typeof d.phone_number === "string") return [d.phone_number];
+                  }
+                  return [];
+                })
+            : [];
+
           const customRange = (job as any).custom_range || job.ranges?.map((r: { value: string }) => r.value).join(",");
-          const destinations = (job as any).destinations || job.destinations?.filter((d: { enabled: boolean }) => d.enabled).flatMap((d: { config: { phone_numbers?: string[] } }) => d.config?.phone_numbers || []) || [];
 
           const jobPayload = {
             job_id: String(job._id),

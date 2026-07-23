@@ -11,6 +11,7 @@ import { cronToHuman, getNextRun, formatRelativeTime } from "@/lib/cron-utils";
 import DagGraph from "@/components/DAG/DagGraph";
 import ExecutionHistory from "@/components/DAG/ExecutionHistory";
 import LogViewer from "@/components/Logs/LogViewer";
+import NextRunCountdown from "@/components/Common/NextRunCountdown";
 
 interface DagDetailViewProps {
   jobId: string;
@@ -89,7 +90,7 @@ export default function DagDetailView({
   const metaCards = [
     { label: "Status", value: job.status.toUpperCase(), icon: Activity, accent: statusStyle },
     { label: "Last Run", value: job.last_run_at ? new Date(job.last_run_at).toLocaleString() : "Never", icon: Clock },
-    { label: "Next Run", value: nextRun ? formatRelativeTime(nextRun) : "—", icon: Calendar },
+    { label: "Next Run", value: nextRun ? <NextRunCountdown targetDate={nextRun} /> : "—", icon: Calendar },
     { label: "Total Runs", value: job.total_runs.toString(), icon: Layers },
     { label: "Success Rate", value: job.total_runs > 0 ? `${Math.round((job.success_count / job.total_runs) * 100)}%` : "—", icon: CheckCircle2 },
     { label: "Avg Duration", value: job.avg_duration_ms ? `${(job.avg_duration_ms / 1000).toFixed(1)}s` : "—", icon: Timer },
