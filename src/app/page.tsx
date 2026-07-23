@@ -271,7 +271,7 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-app text-primary-theme transition-colors duration-250">
+    <div className="h-screen flex overflow-hidden bg-app text-primary-theme transition-colors duration-250">
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl border border-theme bg-popover-theme text-[#f06a55] font-bold text-xs shadow-2xl animate-in slide-in-from-bottom-3 duration-200 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#f06a55] animate-pulse" />
@@ -279,30 +279,32 @@ function DashboardContent() {
         </div>
       )}
 
-      <Navbar
+      {/* Left Full-Height Sidebar */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        systemStatus={systemStatus}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        unreadLogsCount={logs.filter((l) => l.status === "failed").length}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        activeJobsCount={jobs.filter((j) => j.enabled !== false && j.status === "active").length}
+        totalLogsCount={logs.length}
+        currentUser={currentUser}
+        dbUser={dbUser}
+        onLogout={handleLogout}
+        onLogin={handleLogin}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
+      {/* Right Main Work Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <Navbar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          collapsed={sidebarCollapsed}
-          setCollapsed={setSidebarCollapsed}
-          activeJobsCount={jobs.filter((j) => j.enabled !== false && j.status === "active").length}
-          totalLogsCount={logs.length}
-          currentUser={currentUser}
-          dbUser={dbUser}
-          onLogout={handleLogout}
-          onLogin={handleLogin}
+          systemStatus={systemStatus}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          unreadLogsCount={logs.filter((l) => l.status === "failed").length}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto w-full">
           {activeTab === "overview" && (
             <ExecutiveOverview
               jobs={jobs}
