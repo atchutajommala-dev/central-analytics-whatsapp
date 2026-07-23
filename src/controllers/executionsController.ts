@@ -1,4 +1,5 @@
 import { connectToDatabase, ExecutionDocument } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function getExecutionsController(params: {
   job_id?: string;
@@ -12,7 +13,11 @@ export async function getExecutionsController(params: {
 
   const query: any = {};
   if (params.job_id) {
-    query.job_id = params.job_id;
+    if (typeof params.job_id === "string" && ObjectId.isValid(params.job_id)) {
+      query.$or = [{ job_id: params.job_id }, { job_id: new ObjectId(params.job_id) }];
+    } else {
+      query.job_id = params.job_id;
+    }
   }
   if (params.status && params.status !== "all") {
     query.status = params.status;

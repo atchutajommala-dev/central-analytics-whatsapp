@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase, JobDocument } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { executeSinglePayload } from "@/controllers/cronController";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,7 +11,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     let query: any = {};
     if (ObjectId.isValid(id)) {
-      query._id = new ObjectId(id);
+      query.$or = [{ _id: new ObjectId(id) }, { _id: id }];
     } else {
       query._id = id;
     }
@@ -31,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const destinations = body.destinations || (job as any).destinations || job.destinations?.filter((d) => d.enabled).flatMap((d) => (d.config?.phone_numbers as string[]) || []);
 
     const payload = {
-      job_id: id,
+      job_id: String(id),
       job_name: job.name,
       sheet_id: sheetId,
       sheet_name: sheetName,
@@ -47,31 +48,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       include_vd_report: body.include_vd_report,
     };
 
-    // Forward request to internal cron endpoint
-    const cronUrl = new URL("/api/cron", req.url);
-    const cronRes = await fetch(cronUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": req.headers.get("Authorization") || (process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : ""),
-        "x-cron-secret": req.headers.get("x-cron-secret") || process.env.CRON_SECRET || "",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const responseText = await cronRes.text();
-    let result: any = {};
-    try {
-      result = JSON.parse(responseText);
-    } catch {
-      result = {
-        status: cronRes.ok ? "success" : "error",
-        error: `Unexpected response format (${cronRes.status})`,
-        raw_response: responseText.slice(0, 300),
-      };
-    }
-
-    return NextResponse.json(result, { status: cronRes.status });
+    // Execute directly via controller (guarantees execution + MongoDB insertion + stats update)
+    const result = await executeSinglePayload(payload);
+    return NextResponse.json(result, { status: result.status === "error" ? 500 : 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Job execution failed" }, { status: 500 });
   }
