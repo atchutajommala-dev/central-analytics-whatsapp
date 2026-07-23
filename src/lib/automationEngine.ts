@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { connectToDatabase } from "@/lib/mongodb";
+import { sendEmailDispatch } from "@/lib/email-template";
 
 // ============================================================================
 // Google OAuth & Credentials Utilities
@@ -309,6 +310,22 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
                   addLog(`${dType.toUpperCase()} webhook error: ${hookErr?.message}`);
                 }
               }
+            }
+          } else if (dType === "email") {
+            try {
+              const emailResult = await sendEmailDispatch(dCfg, {
+                jobName,
+                sheetTitle: primarySheetName,
+                spreadsheetId: sheetId,
+                dateStr: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }),
+                bodyContext: String(dCfg.body_context || dCfg.body_template || "Here is the latest Google Sheet export report with auto-generated range previews and data dispatches."),
+                imageUrls: uploadedUrls,
+                theme: (dCfg.template_theme as any) || "modern",
+              });
+              emailResult.logs.forEach(addLog);
+              sentCount += emailResult.sent_count;
+            } catch (emailErr: any) {
+              addLog(`Email dispatch error: ${emailErr?.message}`);
             }
           }
         }

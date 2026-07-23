@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Clock, Send, Plus, X, MessageCircle, Mail, HardDrive, Hash, Globe, Bell, CheckCircle2 } from "lucide-react";
+import { Clock, Send, Plus, X, MessageCircle, Mail, HardDrive, Hash, Globe, Bell, CheckCircle2, Eye, Layout } from "lucide-react";
 import { WizardFormState } from "@/types/workflow";
 import { DestinationType, DestinationConfig } from "@/types/dashboard";
 import { cronToHuman, getNextRun, CRON_PRESETS } from "@/lib/cron-utils";
+import { renderHtmlEmailTemplate } from "@/lib/email-template";
 
 interface StepScheduleDestinationsProps {
   state: WizardFormState;
@@ -21,6 +22,7 @@ const DEST_OPTIONS: { value: DestinationType; label: string; desc: string; icon:
 
 export default function StepScheduleDestinations({ state, onChange }: StepScheduleDestinationsProps) {
   const [addingType, setAddingType] = useState<DestinationType | null>(null);
+  const [previewEmailHtml, setPreviewEmailHtml] = useState<string | null>(null);
 
   // Auto-initialize default active WhatsApp destination if destinations array is empty
   useEffect(() => {
@@ -239,6 +241,92 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
                       </div>
                     </div>
                   )}
+
+                  {/* Inline Customizable Form for Email */}
+                  {dest.type === "email" && (
+                    <div className="space-y-3 pt-2 border-t border-theme text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-secondary-theme mb-1">
+                            To Email Recipients (comma-separated) <span className="text-[#f06a55]">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={Array.isArray(dest.config?.to) ? (dest.config.to as string[]).join(", ") : (dest.config?.to as string || "")}
+                            onChange={(e) => updateDestinationConfig(dest.id, {
+                              to: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+                            })}
+                            placeholder="team@company.com, manager@company.com"
+                            className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-secondary-theme mb-1">
+                            Subject Template
+                          </label>
+                          <input
+                            type="text"
+                            value={(dest.config?.subject as string) || ""}
+                            onChange={(e) => updateDestinationConfig(dest.id, { subject: e.target.value })}
+                            placeholder="📊 Daily Analytics Report — {{today}}"
+                            className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] font-bold text-secondary-theme mb-1">
+                            Body Context / Executive Notes
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={(dest.config?.body_context as string) || (dest.config?.body_template as string) || ""}
+                            onChange={(e) => updateDestinationConfig(dest.id, { body_context: e.target.value, body_template: e.target.value })}
+                            placeholder="Here is the latest Google Sheet export report with auto-generated range previews and data dispatches."
+                            className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-secondary-theme mb-1">
+                            Template Design Theme
+                          </label>
+                          <select
+                            value={(dest.config?.template_theme as string) || "modern"}
+                            onChange={(e) => updateDestinationConfig(dest.id, { template_theme: e.target.value })}
+                            className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs"
+                          >
+                            <option value="modern">Modern Enterprise Digest</option>
+                            <option value="executive">Executive Light Summary</option>
+                            <option value="dark">Dark Mode Analytics</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const html = renderHtmlEmailTemplate({
+                              jobName: state.name || "Automation Workflow Report",
+                              sheetTitle: state.source?.selected_worksheets?.[0]?.title || "Location Specific",
+                              spreadsheetId: state.source?.spreadsheet_id || "12-xOedn-K4m8TjPiyApyyM_w-C3xZJkS",
+                              bodyContext: (dest.config?.body_context as string) || "Here is the latest Google Sheet export report with auto-generated range previews and data dispatches.",
+                              imageUrls: ["https://res.cloudinary.com/dwoyf6q32/image/upload/v1/Central_Analytics_Exports/sample_preview.jpg"],
+                              theme: (dest.config?.template_theme as any) || "modern",
+                            });
+                            setPreviewEmailHtml(html);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-[#f06a55]/10 text-[#f06a55] hover:bg-[#f06a55]/20 text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Preview Live HTML Email Template</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -315,6 +403,41 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
           })}
         </div>
       </div>
+
+      {/* Live Email Template Preview Modal */}
+      {previewEmailHtml && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl modal-content rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col border border-theme max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 border-b border-theme bg-app">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-[#f06a55]" />
+                <h3 className="text-xs font-bold text-primary-theme">Live HTML Email Template Preview</h3>
+              </div>
+              <button
+                onClick={() => setPreviewEmailHtml(null)}
+                className="p-1 rounded-lg text-muted-theme hover:text-primary-theme transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 p-2 bg-slate-900 overflow-hidden">
+              <iframe
+                title="Email Preview"
+                srcDoc={previewEmailHtml}
+                className="w-full h-[65vh] border-0 rounded-xl bg-white shadow-inner"
+              />
+            </div>
+            <div className="p-3 border-t border-theme bg-app flex justify-end">
+              <button
+                onClick={() => setPreviewEmailHtml(null)}
+                className="btn-coral px-4 py-1.5 rounded-xl text-xs font-bold"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
