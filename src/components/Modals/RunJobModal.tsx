@@ -31,8 +31,6 @@ export default function RunJobModal({
 }: RunJobModalProps) {
   const [dryRun, setDryRun] = useState(false);
   const [forceRun, setForceRun] = useState(true);
-  const [overrideDate, setOverrideDate] = useState("");
-  const [customRangeOverride, setCustomRangeOverride] = useState("");
 
   if (!job) return null;
 
@@ -42,14 +40,13 @@ export default function RunJobModal({
       job_name: job.name,
       sheet_id: job.source?.spreadsheet_id,
       sheet_name: job.source?.selected_worksheets?.[0]?.title || "Sheet1",
-      custom_range: customRangeOverride.trim() || job.ranges?.map((r) => r.value).join(","),
+      custom_range: job.ranges?.map((r) => r.value).join(","),
       destinations: job.destinations
         ?.filter((d) => d.enabled)
         .flatMap((d) => (d.config?.phone_numbers as string[]) || []),
       aisensy_campaign_name: job.destinations?.find((d) => d.type === "whatsapp")?.config?.campaign_name || "",
       force_run: forceRun,
       dry_run: dryRun,
-      custom_date: overrideDate || undefined,
     };
     onExecute(payload);
   };
@@ -127,29 +124,6 @@ export default function RunJobModal({
                 <span className="text-[10px] text-muted-theme">Generate exported media without dispatching messages to target destinations</span>
               </div>
             </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block font-bold text-secondary-theme mb-1">Date Override (Optional YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  value={overrideDate}
-                  onChange={(e) => setOverrideDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-secondary-theme mb-1">Range Override (Optional A1)</label>
-                <input
-                  type="text"
-                  value={customRangeOverride}
-                  onChange={(e) => setCustomRangeOverride(e.target.value)}
-                  placeholder="e.g. Sheet1!A1927:F1956"
-                  className="w-full px-3 py-2 bg-input-theme text-primary-theme border border-theme rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Execution Result Output */}

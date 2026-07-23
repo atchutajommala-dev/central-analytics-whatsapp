@@ -316,14 +316,14 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
           if (pdfRes.ok) break;
 
           if (pdfRes.status === 429 || pdfRes.status === 500) {
-            addLog(`Attempt ${attempts}/${maxAttempts}: Google returned HTTP ${pdfRes.status} for ${range}. Retrying in ${attempts * 1000}ms...`);
-            await new Promise((r) => setTimeout(r, attempts * 1000));
+            addLog(`Attempt ${attempts}/${maxAttempts}: Google returned HTTP ${pdfRes.status} for ${range}. Retrying in ${attempts * 1500}ms...`);
+            await new Promise((r) => setTimeout(r, attempts * 1500));
           } else {
             break;
           }
         } catch (fetchErr: any) {
           addLog(`Attempt ${attempts}/${maxAttempts}: Network error exporting ${range}: ${fetchErr?.message}`);
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 1500));
         }
       }
 
@@ -343,8 +343,8 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
         }
       }
 
-      // Small delay between range downloads to prevent Google rate limits (HTTP 429)
-      await new Promise((r) => setTimeout(r, 500));
+      // 1000ms delay between range downloads to prevent Google rate limits (HTTP 429)
+      await new Promise((r) => setTimeout(r, 1000));
 
       const pdfArrayBuffer = await pdfRes.arrayBuffer();
       const base64Pdf = `data:application/pdf;base64,${Buffer.from(pdfArrayBuffer).toString("base64")}`;
@@ -384,16 +384,23 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
       } else {
         // 1. WhatsApp Dispatch via AISensy
         for (const dest of destinations) {
+          const cleanPhone = dest.replace(/[^\d]/g, "");
+          const formattedDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
           for (let i = 0; i < uploadedUrls.length; i++) {
             const url = uploadedUrls[i];
             const aisensyPayload = {
               apiKey: aisensyApiKey,
               campaignName: aisensyCampaignName,
-              destination: dest,
-              userName: "PW Online- Analytics",
-              templateParams: [new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })],
+              destination: cleanPhone,
+              userName: "PW Online Analytics",
+              templateParams: [url, formattedDate],
               source: "serverless-automation-engine",
-              media: { url, filename: `table_${i + 1}.jpg` },
+              media: {
+                url: url,
+                filename: `analytics_report_${i + 1}.jpg`,
+                type: "IMAGE",
+              },
             };
 
             try {
@@ -402,11 +409,19 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(aisensyPayload),
               });
-              addLog(`WhatsApp dispatch to ${dest} status: ${aiRes.status}`);
-              if (aiRes.ok) sentCount++;
+
+              const aiJson = await aiRes.json().catch(() => ({}));
+              addLog(`WhatsApp dispatch to ${cleanPhone} status: ${aiRes.status} | Response: ${JSON.stringify(aiJson)}`);
+
+              if (aiRes.ok && (aiJson.success !== false)) {
+                sentCount++;
+              }
             } catch (destErr: any) {
-              addLog(`WhatsApp dispatch error to ${dest}: ${destErr?.message}`);
+              addLog(`WhatsApp dispatch error to ${cleanPhone}: ${destErr?.message}`);
             }
+
+            // Small delay between WhatsApp messages
+            await new Promise((r) => setTimeout(r, 600));
           }
         }
 
