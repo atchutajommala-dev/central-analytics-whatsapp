@@ -271,25 +271,33 @@ export interface CronPreset {
   label: string;
   expression: string;
   description: string;
-  category: "common" | "business" | "interval";
+  category: "hourly" | "business" | "interval" | "high_frequency";
 }
 
 export const CRON_PRESETS: CronPreset[] = [
-  { label: "Every minute", expression: "* * * * *", description: "Runs every single minute", category: "interval" },
-  { label: "Every 5 minutes", expression: "*/5 * * * *", description: "Runs every 5 minutes", category: "interval" },
-  { label: "Every 15 minutes", expression: "*/15 * * * *", description: "Runs every 15 minutes", category: "interval" },
-  { label: "Every 30 minutes", expression: "*/30 * * * *", description: "Runs every 30 minutes", category: "interval" },
-  { label: "Hourly", expression: "0 * * * *", description: "Runs at the start of every hour", category: "common" },
-  { label: "Every 2 hours", expression: "0 */2 * * *", description: "Runs every 2 hours", category: "interval" },
-  { label: "Daily at 8 AM", expression: "0 8 * * *", description: "Runs at 8:00 AM every day", category: "common" },
+  // Hourly & Multi-Hour Presets (Primary)
+  { label: "Hourly", expression: "0 * * * *", description: "Runs at the start of every hour", category: "hourly" },
+  { label: "Every 2 hours", expression: "0 */2 * * *", description: "Runs every 2 hours", category: "hourly" },
+  { label: "Every 3 hours", expression: "0 */3 * * *", description: "Runs every 3 hours", category: "hourly" },
+  { label: "Every 4 hours", expression: "0 */4 * * *", description: "Runs every 4 hours", category: "hourly" },
+  { label: "Every 6 hours", expression: "0 */6 * * *", description: "Runs every 6 hours", category: "hourly" },
+  { label: "Every 12 hours", expression: "0 */12 * * *", description: "Runs twice daily (every 12h)", category: "hourly" },
+
+  // Daily & Business Hours
+  { label: "Daily at 8:00 AM", expression: "0 8 * * *", description: "Runs at 8:00 AM every day", category: "business" },
   { label: "Daily at 8:30 AM", expression: "30 8 * * *", description: "Runs at 8:30 AM every day", category: "business" },
-  { label: "Daily at 9 AM", expression: "0 9 * * *", description: "Runs at 9:00 AM every day", category: "business" },
-  { label: "Twice daily", expression: "0 9,18 * * *", description: "Runs at 9 AM and 6 PM", category: "business" },
-  { label: "Weekdays at 8 AM", expression: "0 8 * * 1-5", description: "Mon-Fri at 8:00 AM", category: "business" },
+  { label: "Daily at 9:00 AM", expression: "0 9 * * *", description: "Runs at 9:00 AM every day", category: "business" },
+  { label: "Daily at 6:00 PM", expression: "0 18 * * *", description: "Runs at 6:00 PM every day", category: "business" },
+  { label: "Twice daily (9 AM & 6 PM)", expression: "0 9,18 * * *", description: "Runs at 9 AM and 6 PM", category: "business" },
   { label: "Weekdays at 8:30 AM", expression: "30 8 * * 1-5", description: "Mon-Fri at 8:30 AM", category: "business" },
-  { label: "Every Monday", expression: "0 9 * * 1", description: "Every Monday at 9 AM", category: "common" },
-  { label: "Monthly 1st", expression: "0 9 1 * *", description: "1st of every month at 9 AM", category: "common" },
-  { label: "Midnight", expression: "0 0 * * *", description: "Every day at midnight", category: "common" },
+  { label: "Midnight", expression: "0 0 * * *", description: "Every day at midnight", category: "business" },
+  { label: "Every Monday 9 AM", expression: "0 9 * * 1", description: "Every Monday at 9 AM", category: "business" },
+
+  // High Frequency Presets
+  { label: "Every 15 minutes", expression: "*/15 * * * *", description: "Runs every 15 minutes", category: "high_frequency" },
+  { label: "Every 30 minutes", expression: "*/30 * * * *", description: "Runs every 30 minutes", category: "high_frequency" },
+  { label: "Every 5 minutes", expression: "*/5 * * * *", description: "Runs every 5 minutes", category: "high_frequency" },
+  { label: "Every minute", expression: "* * * * *", description: "Runs every single minute", category: "high_frequency" },
 ];
 
 // ---------------------------------------------------------------------------

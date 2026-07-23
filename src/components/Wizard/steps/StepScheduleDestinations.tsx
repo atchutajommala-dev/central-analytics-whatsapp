@@ -23,6 +23,7 @@ const DEST_OPTIONS: { value: DestinationType; label: string; desc: string; icon:
 export default function StepScheduleDestinations({ state, onChange }: StepScheduleDestinationsProps) {
   const [addingType, setAddingType] = useState<DestinationType | null>(null);
   const [previewEmailHtml, setPreviewEmailHtml] = useState<string | null>(null);
+  const [scheduleTab, setScheduleTab] = useState<"hourly" | "business" | "high_frequency">("hourly");
 
   // Auto-initialize default active WhatsApp destination if destinations array is empty
   useEffect(() => {
@@ -80,16 +81,52 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
       {/* SECTION 1: SCHEDULE CONFIGURATION                                  */}
       {/* ------------------------------------------------------------------ */}
       <div className="p-4 rounded-2xl bg-app border border-theme space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#f06a55]" />
-          <h3 className="text-xs font-bold text-primary-theme">Execution Schedule</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-theme">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#f06a55]" />
+            <h3 className="text-xs font-bold text-primary-theme">Execution Schedule</h3>
+          </div>
+
+          <div className="flex items-center gap-1 bg-input-theme p-1 rounded-xl border border-theme self-start sm:self-auto text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setScheduleTab("hourly")}
+              className={`px-2.5 py-1 rounded-lg transition ${
+                scheduleTab === "hourly" ? "bg-[#f06a55] text-white shadow-sm" : "text-muted-theme hover:text-primary-theme"
+              }`}
+            >
+              Hourly & Intervals
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduleTab("business")}
+              className={`px-2.5 py-1 rounded-lg transition ${
+                scheduleTab === "business" ? "bg-[#f06a55] text-white shadow-sm" : "text-muted-theme hover:text-primary-theme"
+              }`}
+            >
+              Daily & Business Hours
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduleTab("high_frequency")}
+              className={`px-2.5 py-1 rounded-lg transition ${
+                scheduleTab === "high_frequency" ? "bg-[#f06a55] text-white shadow-sm" : "text-muted-theme hover:text-primary-theme"
+              }`}
+            >
+              High Frequency
+            </button>
+          </div>
         </div>
 
-        {/* Preset Schedule Buttons */}
+        {/* Categorized Schedule Presets */}
         <div>
-          <label className="block text-[11px] font-bold text-muted-theme mb-1.5">Schedule Presets</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {CRON_PRESETS.slice(0, 4).map((preset) => {
+          <label className="block text-[11px] font-bold text-muted-theme mb-1.5">
+            {scheduleTab === "hourly" && "Hourly & Multi-Hour Interval Presets"}
+            {scheduleTab === "business" && "Daily & Business Hour Presets"}
+            {scheduleTab === "high_frequency" && "High-Frequency Interval Presets"}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {CRON_PRESETS.filter((p) => p.category === scheduleTab).map((preset) => {
               const isSelected = sched.cron_expression === preset.expression;
               return (
                 <button
@@ -102,7 +139,7 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
                       : "border-theme bg-input-theme text-secondary-theme hover:border-[#f06a55]/30"
                   }`}
                 >
-                  <p className="text-xs font-bold">{preset.label}</p>
+                  <p className="text-xs font-bold truncate">{preset.label}</p>
                   <p className="text-[10px] font-mono opacity-80 mt-0.5">{preset.expression}</p>
                 </button>
               );
@@ -110,11 +147,55 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
           </div>
         </div>
 
+        {/* Quick Time of Day & Hourly Builder */}
+        <div className="p-3 rounded-xl bg-input-theme border border-theme space-y-3">
+          <label className="block text-xs font-bold text-primary-theme">Quick Time-of-Day / Hourly Frequency Selector</label>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block text-[11px] font-bold text-muted-theme mb-1">Set Hourly Frequency</label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) updateSchedule({ cron_expression: e.target.value });
+                }}
+                className="w-full px-3 py-2 bg-app text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs font-semibold"
+              >
+                <option value="">-- Choose Hourly Frequency --</option>
+                <option value="0 * * * *">Every 1 Hour (At minute 0)</option>
+                <option value="0 */2 * * *">Every 2 Hours</option>
+                <option value="0 */3 * * *">Every 3 Hours</option>
+                <option value="0 */4 * * *">Every 4 Hours</option>
+                <option value="0 */6 * * *">Every 6 Hours</option>
+                <option value="0 */12 * * *">Every 12 Hours</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-muted-theme mb-1">Set Daily Specific Hour (IST)</label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) updateSchedule({ cron_expression: e.target.value });
+                }}
+                className="w-full px-3 py-2 bg-app text-primary-theme border border-theme rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f06a55]/50 text-xs font-semibold"
+              >
+                <option value="">-- Choose Daily Time --</option>
+                <option value="0 8 * * *">Daily at 08:00 AM IST</option>
+                <option value="30 8 * * *">Daily at 08:30 AM IST</option>
+                <option value="0 9 * * *">Daily at 09:00 AM IST</option>
+                <option value="30 9 * * *">Daily at 09:30 AM IST</option>
+                <option value="0 18 * * *">Daily at 06:00 PM IST</option>
+                <option value="0 9,18 * * *">Twice Daily (09:00 AM & 06:00 PM IST)</option>
+                <option value="0 0 * * *">Midnight (00:00 AM IST)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* Cron Input & Preview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-secondary-theme mb-1">
-              Cron Expression (5 fields)
+              Cron Expression (5 fields) <span className="text-[#f06a55]">*</span>
             </label>
             <input
               type="text"
@@ -142,7 +223,7 @@ export default function StepScheduleDestinations({ state, onChange }: StepSchedu
             </select>
             {nextRunDate && (
               <p className="text-[10px] text-muted-theme mt-1 truncate">
-                Next run: <span className="font-mono text-primary-theme font-bold">{nextRunDate.toLocaleString()}</span>
+                Next scheduled run: <span className="font-mono text-primary-theme font-bold">{nextRunDate.toLocaleString()}</span>
               </p>
             )}
           </div>
