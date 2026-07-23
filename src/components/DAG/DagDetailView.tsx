@@ -21,7 +21,7 @@ interface DagDetailViewProps {
   onRun: (job: WorkflowJob) => void;
   onDelete: (jobId: string) => void;
   setActiveTab: (tab: DashboardTab) => void;
-  onToggleStatus?: (jobId: string, newStatus: "active" | "inactive") => void;
+  onToggleStatus?: (jobId: string, newStatus: "active" | "inactive" | "paused") => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -139,16 +139,25 @@ export default function DagDetailView({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => onToggleStatus && onToggleStatus(job._id, job.status === "active" ? "inactive" : "active")}
+            onClick={() => onToggleStatus && onToggleStatus(job._id, job.status === "active" ? "paused" : "active")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
               job.status === "active"
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
             }`}
-            title={job.status === "active" ? "Click to set Inactive" : "Click to set Active"}
+            title={job.status === "active" ? "Pause DAG execution schedule" : "Resume DAG execution schedule"}
           >
-            <span className={`w-2 h-2 rounded-full ${job.status === "active" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-            <span>{job.status === "active" ? "Active" : "Inactive"}</span>
+            {job.status === "active" ? (
+              <>
+                <Pause className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                <span>Pause DAG</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 text-emerald-500 fill-current" />
+                <span>Resume DAG</span>
+              </>
+            )}
           </button>
           <button onClick={() => fetchJobDetail(false)} className="px-3 py-1.5 rounded-xl btn-secondary-theme text-xs font-bold flex items-center gap-1.5">
             <RefreshCw className="w-3.5 h-3.5 text-[#f06a55]" /> Refresh

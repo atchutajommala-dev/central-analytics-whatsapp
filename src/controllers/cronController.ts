@@ -127,19 +127,19 @@ export async function executeAutomationController(payload: any) {
     const activeJobs = await db
       .collection("jobs")
       .find({
-        $or: [
-          { status: "active" },
-          { status: "published" },
-          { enabled: true },
-          { active: true },
-          { published: true },
-        ],
+        status: "active",
+        enabled: { $ne: false },
       })
       .toArray();
 
     if (activeJobs && activeJobs.length > 0) {
+      let executedCount = 0;
       const results: any[] = [];
+
       for (const job of activeJobs) {
+        if (job.status === "paused" || job.status === "inactive" || job.enabled === false) {
+          continue;
+        }
         const cronExpr = job.schedule?.cron_expression || (job as any).cron_expression || "0 * * * *";
         const tz = job.schedule?.timezone || "Asia/Kolkata";
         const lastRunAt = (job as any).last_run || (job as any).last_run_at;

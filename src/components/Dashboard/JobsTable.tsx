@@ -36,7 +36,7 @@ interface JobsTableProps {
   onOpenNewJobModal: () => void;
   onViewJobLogs: (jobId: string) => void;
   onSelectJob?: (jobId: string) => void;
-  onToggleJobStatus?: (jobId: string, newStatus: "active" | "inactive") => void;
+  onToggleJobStatus?: (jobId: string, newStatus: "active" | "inactive" | "paused") => void;
 }
 
 export default function JobsTable({
@@ -200,17 +200,27 @@ export default function JobsTable({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onToggleJobStatus && onToggleJobStatus(job._id, (job.status === "active" && job.enabled !== false) ? "inactive" : "active");
+                                    const isCurrentlyActive = job.status === "active" && job.enabled !== false;
+                                    onToggleJobStatus && onToggleJobStatus(job._id, isCurrentlyActive ? "paused" : "active");
                                   }}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition border cursor-pointer ${
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition border cursor-pointer ${
                                     job.status === "active" && job.enabled !== false
                                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
                                       : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
                                   }`}
-                                  title={`Click to switch to ${job.status === "active" && job.enabled !== false ? "Inactive" : "Active"}`}
+                                  title={job.status === "active" && job.enabled !== false ? "Click to Pause DAG" : "Click to Resume DAG"}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${job.status === "active" && job.enabled !== false ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                                  <span>{job.status === "active" && job.enabled !== false ? "Active" : "Inactive"}</span>
+                                  {job.status === "active" && job.enabled !== false ? (
+                                    <>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      <span>Active</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Pause className="w-2.5 h-2.5 text-amber-500 fill-current" />
+                                      <span>Paused</span>
+                                    </>
+                                  )}
                                 </button>
                               </div>
 

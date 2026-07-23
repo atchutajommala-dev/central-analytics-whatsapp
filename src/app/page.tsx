@@ -228,7 +228,7 @@ function DashboardContent() {
     }
   };
 
-  const handleToggleJobStatus = async (jobId: string, newStatus: "active" | "inactive") => {
+  const handleToggleJobStatus = async (jobId: string, newStatus: "active" | "inactive" | "paused") => {
     try {
       const isEnabled = newStatus === "active";
       const res = await fetch("/api/jobs", {
@@ -241,7 +241,7 @@ function DashboardContent() {
         }),
       });
       if (res.ok) {
-        showToast(`Workflow set to ${newStatus.toUpperCase()}`);
+        showToast(`Workflow schedule set to ${newStatus.toUpperCase()}`);
         await fetchData(true);
       } else {
         showToast("Failed to update status");

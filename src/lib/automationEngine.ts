@@ -298,9 +298,9 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
       const orientation = (exportConfig.orientation || "landscape").toLowerCase();
       const portraitParam = orientation === "portrait" ? "true" : "false";
 
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=letter&fitw=${fitWidth ? "true" : "false"}&scale=4&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=${showGridlines ? "true" : "false"}&printtitle=false`;
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&range=${encodeURIComponent(rangeParam)}&size=A1&fitw=${fitWidth ? "true" : "false"}&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=${showGridlines ? "true" : "false"}&printtitle=false`;
 
-      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid}, FitWidth: 100%)...`);
+      addLog(`Downloading Google Sheet export for range ${range} (Tab GID: ${targetGid}, HD Vector Size: A1)...`);
 
       let pdfRes: Response | null = null;
       let attempts = 0;
@@ -329,7 +329,7 @@ export async function executeAutomationPayloadJS(payload: any = {}) {
 
       if (!pdfRes || !pdfRes.ok) {
         // Ultimate Fallback: Try exporting with full range string
-        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&size=letter&fitw=true&scale=4&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=false&printtitle=false`;
+        const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&portrait=${portraitParam}&gid=${targetGid}&size=A1&fitw=true&scale=2&top_margin=0.00&bottom_margin=0.00&left_margin=0.00&right_margin=0.00&fzr=false&gridlines=false&printtitle=false`;
         addLog(`Attempting full tab fallback export for ${range}...`);
         const fallbackRes = await fetch(fallbackUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
